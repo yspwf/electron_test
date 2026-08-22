@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Merikle 云盘</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fb;
+            height: 100vh;
+            display: flex;
+            color: #1e293b;
+        }
+
+        /* ===== 左侧菜单 ===== */
+        .sidebar {
+            width: 240px;
+            background: #ffffff;
+            border-right: 1px solid #e9edf4;
+            padding: 28px 18px;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+
+        .logo {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f1829;
+            letter-spacing: -0.3px;
+            padding-bottom: 32px;
+            padding-left: 6px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo i {
+            color: #3b7cff;
+            font-size: 26px;
+        }
+
+        .nav-menu {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 500;
+            color: #5b6b89;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            text-decoration: none;
+        }
+
+        .nav-item i {
+            width: 20px;
+            font-size: 18px;
+            color: #7b8aa8;
+            transition: color 0.2s;
+        }
+
+        .nav-item:hover {
+            background: #f0f4fe;
+            color: #1e293b;
+        }
+
+        .nav-item:hover i {
+            color: #3b7cff;
+        }
+
+        .nav-item.active {
+            background: #eef3ff;
+            color: #1a4bc4;
+            font-weight: 600;
+        }
+
+        .nav-item.active i {
+            color: #3b7cff;
+        }
+
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 20px;
+            border-top: 1px solid #edf2f7;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding-left: 6px;
+        }
+
+        .sidebar-footer .avatar {
+            width: 38px;
+            height: 38px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3b7cff, #6a9eff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .sidebar-footer .user-info {
+            font-size: 13px;
+        }
+
+        .sidebar-footer .user-info .name {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .sidebar-footer .user-info .plan {
+            color: #7b8aa8;
+            font-size: 12px;
+        }
+
+        /* ===== 主区域 ===== */
+        .main {
+            flex: 1;
+            padding: 28px 40px 32px 32px;
+            overflow-y: auto;
+            height: 100vh;
+            background: #f8faff;
+        }
+
+        /* ===== 顶部导航分类 ===== */
+        .top-nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .filter-tabs {
+            display: flex;
+            gap: 6px;
+            background: #ffffff;
+            padding: 4px;
+            border-radius: 14px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+            border: 1px solid #eef2f7;
+            flex-wrap: wrap;
+        }
+
+        .filter-tab {
+            padding: 8px 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #5b6b89;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            background: transparent;
+            border: none;
+            font-family: inherit;
+        }
+
+        .filter-tab:hover {
+            background: #f0f4fe;
+            color: #1e293b;
+        }
+
+        .filter-tab.active {
+            background: #3b7cff;
+            color: #ffffff;
+            box-shadow: 0 4px 12px rgba(59, 124, 255, 0.25);
+        }
+
+        .top-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .search-box {
+            display: flex;
+            align-items: center;
+            background: #ffffff;
+            border: 1px solid #e9edf4;
+            border-radius: 30px;
+            padding: 6px 16px 6px 18px;
+            gap: 8px;
+            transition: border 0.2s;
+        }
+
+        .search-box:focus-within {
+            border-color: #3b7cff;
+            box-shadow: 0 0 0 3px rgba(59, 124, 255, 0.08);
+        }
+
+        .search-box i {
+            color: #9aabbf;
+            font-size: 15px;
+        }
+
+        .search-box input {
+            border: none;
+            outline: none;
+            background: transparent;
+            padding: 6px 0;
+            font-size: 14px;
+            width: 160px;
+            color: #1e293b;
+            font-family: inherit;
+        }
+
+        .search-box input::placeholder {
+            color: #b0c0d4;
+        }
+
+        .btn-upload {
+            background: #3b7cff;
+            border: none;
+            padding: 9px 22px;
+            border-radius: 30px;
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: inherit;
+            box-shadow: 0 4px 14px rgba(59, 124, 255, 0.3);
+        }
+
+        .btn-upload:hover {
+            background: #2a66e0;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(59, 124, 255, 0.35);
+        }
+
+        .btn-upload i {
+            font-size: 16px;
+        }
+
+        /* ===== 上传任务卡片 ===== */
+        .upload-section {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 20px 24px;
+            margin-bottom: 28px;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+            border: 1px solid #eef2f7;
+        }
+
+        .upload-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+
+        .upload-header .title {
+            font-weight: 600;
+            font-size: 15px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .upload-header .title i {
+            color: #f59e0b;
+            font-size: 18px;
+        }
+
+        .upload-header .badge {
+            font-size: 12px;
+            background: #f1f5f9;
+            padding: 2px 12px;
+            border-radius: 30px;
+            color: #5b6b89;
+        }
+
+        .upload-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 14px;
+            background: #f8faff;
+            border-radius: 12px;
+            border: 1px solid #edf2f7;
+        }
+
+        .upload-item .file-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: #eef3ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3b7cff;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .upload-item .file-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .upload-item .file-info .name {
+            font-weight: 500;
+            font-size: 14px;
+            color: #1e293b;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .upload-item .file-info .meta {
+            font-size: 12px;
+            color: #7b8aa8;
+            display: flex;
+            gap: 16px;
+            margin-top: 2px;
+        }
+
+        .upload-item .progress-wrap {
+            width: 140px;
+            flex-shrink: 0;
+        }
+
+        .upload-item .progress-bar {
+            height: 6px;
+            background: #e9edf4;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+
+        .upload-item .progress-bar .fill {
+            height: 100%;
+            width: 68%;
+            background: linear-gradient(90deg, #3b7cff, #6a9eff);
+            border-radius: 10px;
+            transition: width 0.3s;
+        }
+
+        .upload-item .progress-text {
+            font-size: 12px;
+            color: #5b6b89;
+            font-weight: 500;
+            text-align: right;
+        }
+
+        .upload-item .status-icon {
+            color: #3b7cff;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        /* ===== 文件列表 ===== */
+        .file-section {
+            background: #ffffff;
+            border-radius: 18px;
+            border: 1px solid #eef2f7;
+            overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+        }
+
+        .file-section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 18px 24px;
+            border-bottom: 1px solid #f0f4fc;
+        }
+
+        .file-section-header .title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1e293b;
+        }
+
+        .file-section-header .actions {
+            display: flex;
+            gap: 12px;
+            color: #7b8aa8;
+            font-size: 14px;
+        }
+
+        .file-section-header .actions i {
+            cursor: pointer;
+            transition: color 0.2s;
+        }
+
+        .file-section-header .actions i:hover {
+            color: #1e293b;
+        }
+
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .file-table th {
+            text-align: left;
+            padding: 14px 24px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #7b8aa8;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            background: #fafcff;
+            border-bottom: 1px solid #f0f4fc;
+        }
+
+        .file-table td {
+            padding: 16px 24px;
+            font-size: 14px;
+            border-bottom: 1px solid #f4f7fd;
+            color: #1e293b;
+            vertical-align: middle;
+        }
+
+        .file-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .file-table tr:hover td {
+            background: #f9fcff;
+        }
+
+        .file-table .file-name {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            font-weight: 500;
+        }
+
+        .file-table .file-name i {
+            font-size: 22px;
+            color: #3b7cff;
+            width: 28px;
+            text-align: center;
+        }
+
+        .file-table .file-name .ext {
+            font-size: 12px;
+            font-weight: 400;
+            color: #7b8aa8;
+            margin-left: 4px;
+        }
+
+        .file-table .file-owner {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .file-table .file-owner .avatar-sm {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #dbe4f0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 600;
+            color: #1e293b;
+            flex-shrink: 0;
+        }
+
+        .file-table .file-owner .avatar-sm.green {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .file-table .file-owner .avatar-sm.purple {
+            background: #e9d5ff;
+            color: #5b21b6;
+        }
+
+        .file-table .file-size {
+            color: #5b6b89;
+        }
+
+        .file-table .file-time {
+            color: #7b8aa8;
+            font-size: 13px;
+        }
+
+        .file-table .file-actions i {
+            color: #b0c0d4;
+            margin: 0 4px;
+            cursor: pointer;
+            transition: color 0.2s;
+            font-size: 16px;
+        }
+
+        .file-table .file-actions i:hover {
+            color: #3b7cff;
+        }
+
+        /* ===== 空状态 / 占位 ===== */
+        .empty-state {
+            display: none;
+            text-align: center;
+            padding: 60px 20px;
+            color: #7b8aa8;
+        }
+
+        .empty-state i {
+            font-size: 48px;
+            color: #d0dcec;
+            margin-bottom: 16px;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 1024px) {
+            .main {
+                padding: 20px 24px;
+            }
+            .sidebar {
+                width: 72px;
+                padding: 20px 10px;
+            }
+            .sidebar .logo span {
+                display: none;
+            }
+            .sidebar .nav-item span {
+                display: none;
+            }
+            .sidebar .nav-item {
+                justify-content: center;
+                padding: 12px;
+            }
+            .sidebar .nav-item i {
+                font-size: 20px;
+                margin: 0;
+            }
+            .sidebar-footer .user-info {
+                display: none;
+            }
+            .sidebar-footer .avatar {
+                margin: 0 auto;
+            }
+            .sidebar-footer {
+                justify-content: center;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                display: none;
+            }
+            .main {
+                padding: 16px;
+            }
+            .top-nav {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .filter-tabs {
+                justify-content: center;
+            }
+            .top-actions {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            .search-box input {
+                width: 120px;
+            }
+            .upload-item {
+                flex-wrap: wrap;
+            }
+            .upload-item .progress-wrap {
+                width: 100%;
+            }
+            .file-table {
+                font-size: 13px;
+            }
+            .file-table th,
+            .file-table td {
+                padding: 12px 16px;
+            }
+            .file-table .file-owner .avatar-sm {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .filter-tab {
+                padding: 6px 14px;
+                font-size: 13px;
+            }
+            .btn-upload {
+                padding: 7px 16px;
+                font-size: 13px;
+            }
+            .file-table .file-actions {
+                display: flex;
+                gap: 4px;
+            }
+            .upload-item .file-info .meta {
+                flex-wrap: wrap;
+                gap: 6px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+        <div class="logo">
+            <i class="fas fa-cloud"></i>
+            <span>Merikle</span>
+        </div>
+        <nav class="nav-menu">
+            <a class="nav-item active" href="#">
+                <i class="fas fa-home"></i>
+                <span>首页</span>
+            </a>
+            <a class="nav-item" href="#">
+                <i class="fas fa-share-alt"></i>
+                <span>分享</span>
+            </a>
+            <a class="nav-item" href="#">
+                <i class="fas fa-trash-alt"></i>
+                <span>回收站</span>
+            </a>
+            <a class="nav-item" href="#">
+                <i class="fas fa-cog"></i>
+                <span>设置</span>
+            </a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="avatar">J</div>
+            <div class="user-info">
+                <div class="name">John Brown</div>
+                <div class="plan">个人 · 15GB</div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主区域 -->
+    <main class="main">
+        <!-- 顶部导航 -->
+        <div class="top-nav">
+            <div class="filter-tabs">
+                <button class="filter-tab active">全部</button>
+                <button class="filter-tab">视频</button>
+                <button class="filter-tab">音频</button>
+                <button class="filter-tab">图片</button>
+                <button class="filter-tab">文档</button>
+                <button class="filter-tab">其他</button>
+            </div>
+            <div class="top-actions">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" placeholder="搜索文件..." />
+                </div>
+                <button class="btn-upload">
+                    <i class="fas fa-upload"></i> 上传
+                </button>
+            </div>
+        </div>
+
+        <!-- 上传任务 -->
+        <div class="upload-section">
+            <div class="upload-header">
+                <span class="title">
+                    <i class="fas fa-circle-arrow-up"></i> 上传任务
+                </span>
+                <span class="badge">仅展示本次上传任务</span>
+            </div>
+            <div class="upload-item">
+                <div class="file-icon">
+                    <i class="fas fa-file-image"></i>
+                </div>
+                <div class="file-info">
+                    <div class="name">Mon Feb 26 2024 23:10:38 GMT+0800 (中国标准时间).jpeg</div>
+                    <div class="meta">
+                        <span>12.4 MB</span>
+                        <span>剩余 32 秒</span>
+                    </div>
+                </div>
+                <div class="progress-wrap">
+                    <div class="progress-bar">
+                        <div class="fill" style="width: 68%;"></div>
+                    </div>
+                    <div class="progress-text">68%</div>
+                </div>
+                <div class="status-icon">
+                    <i class="fas fa-spinner fa-pulse"></i>
+                </div>
+            </div>
+        </div>
+
+        <!-- 文件列表 -->
+        <div class="file-section">
+            <div class="file-section-header">
+                <span class="title">全部文件</span>
+                <div class="actions">
+                    <i class="fas fa-th-large"></i>
+                    <i class="fas fa-list-ul"></i>
+                    <i class="fas fa-arrow-up-wide-short"></i>
+                </div>
+            </div>
+            <table class="file-table">
+                <thead>
+                    <tr>
+                        <th>文件名</th>
+                        <th>所有者</th>
+                        <th>大小</th>
+                        <th>修改时间</th>
+                        <th style="text-align:right;">操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>
+                            <div class="file-name">
+                                <i class="fas fa-file-pdf"></i>
+                                Q4_Financial_Report.pdf
+                                <span class="ext">PDF</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="file-owner">
+                                <span class="avatar-sm">JS</span>
+                                John Brown sr.
+                            </div>
+                        </td>
+                        <td class="file-size">2.4 MB</td>
+                        <td class="file-time">2024-02-26 14:30</td>
+                        <td class="file-actions" style="text-align:right;">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="file-name">
+                                <i class="fas fa-file-video" style="color:#e8796b;"></i>
+                                product_demo_v2.mp4
+                                <span class="ext">MP4</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="file-owner">
+                                <span class="avatar-sm green">JB</span>
+                                Joe Black
+                            </div>
+                        </td>
+                        <td class="file-size">156.8 MB</td>
+                        <td class="file-time">2024-02-25 09:15</td>
+                        <td class="file-actions" style="text-align:right;">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="file-name">
+                                <i class="fas fa-file-image" style="color:#4fbc8c;"></i>
+                                screenshot_2024_02_24.png
+                                <span class="ext">PNG</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="file-owner">
+                                <span class="avatar-sm purple">JS</span>
+                                John Brown sr.
+                            </div>
+                        </td>
+                        <td class="file-size">3.1 MB</td>
+                        <td class="file-time">2024-02-24 18:42</td>
+                        <td class="file-actions" style="text-align:right;">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>
+                            <div class="file-name">
+                                <i class="fas fa-file-audio" style="color:#f5a623;"></i>
+                                podcast_episode_12.mp3
+                                <span class="ext">MP3</span>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="file-owner">
+                                <span class="avatar-sm">JB</span>
+                                Joe Black
+                            </div>
+                        </td>
+                        <td class="file-size">48.2 MB</td>
+                        <td class="file-time">2024-02-23 11:00</td>
+                        <td class="file-actions" style="text-align:right;">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // ===== 分类切换 =====
+        document.querySelectorAll('.filter-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // ===== 侧边栏导航切换 =====
+        document.querySelectorAll('.nav-item').forEach(item => {
+            item.addEventListener('click', function(e) {
+                e.preventDefault();
+                document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // ===== 模拟上传进度 =====
+        (function simulateProgress() {
+            const fill = document.querySelector('.progress-bar .fill');
+            const text = document.querySelector('.progress-text');
+            let progress = 68;
+            const interval = setInterval(() => {
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    text.textContent = '100%';
+                    fill.style.width = '100%';
+                    document.querySelector('.status-icon i').className = 'fas fa-check-circle';
+                    document.querySelector('.status-icon i').style.color = '#22c55e';
+                    return;
+                }
+                progress += Math.floor(Math.random() * 6) + 1;
+                if (progress > 100) progress = 100;
+                fill.style.width = progress + '%';
+                text.textContent = progress + '%';
+            }, 800);
+        })();
+
+        // ===== 搜索框提示 =====
+        const searchInput = document.querySelector('.search-box input');
+        searchInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                alert('搜索: ' + searchInput.value);
+            }
+        });
+
+        // ===== 上传按钮 =====
+        document.querySelector('.btn-upload').addEventListener('click', () => {
+            alert('打开文件选择器 (模拟)');
+        });
+
+        console.log('Merikle 云盘已加载 ✓');
+    </script>
+</body>
+</html>
