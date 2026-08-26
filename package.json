@@ -37,7 +37,9 @@
     "vite-plugin-electron-renderer": "^1.0.0"
   },
   "dependencies": {
+    "electron-store": "^11.0.2",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "v8-compile-cache": "^2.4.0"
   }
 }

@@ -105,6 +105,7 @@ export default defineConfig({
     rollupOptions: {
       input: {
         index: resolve(__dirname, 'index.html'),
+        splash: resolve(__dirname, 'splash.html'),
         main: resolve(__dirname, 'renderer/main.tsx'),
       },
       output: {
@@ -114,6 +115,9 @@ export default defineConfig({
           }
           if (id.includes('node_modules/react-router')) {
             return 'router-vendor'
+          }
+          if (id.includes('node_modules')) {
+            return 'vendor'
           }
         }
       },

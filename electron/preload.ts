@@ -23,5 +23,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeThemeListener: () => {
     ipcRenderer.removeAllListeners('theme-changed');
-  }
+  },
+   // 系统 Loading 淡出通知
+  onLoadingFadeOut: (callback: () => void) => {
+    ipcRenderer.once('loading:fade-out', () => callback())
+  },
+
+  // 渲染进程通知主进程：业务就绪
+  notifyAppReady: () => ipcRenderer.invoke('app:ready'),
 });

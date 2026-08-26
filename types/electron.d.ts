@@ -13,6 +13,8 @@ export interface IElectronAPI {
    openFile: () => Promise<string>;
   platform: string;
   ping: () => Promise<string>;
+  onLoadingFadeOut: (callback: () => void) => void
+  notifyAppReady: () => Promise<boolean>
 }
 
 declare global {
