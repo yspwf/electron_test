@@ -11,7 +11,8 @@
     "electron:dev": "vite --mode electron && electron .",
     "electron:build": "vite build --mode electron && electron-builder",
     "electron:preview": "vite preview --mode electron",
-    "electron": "electron ."
+    "electron": "electron .",
+    "build-64": "electron-builder --win --x64"
   },
   "keywords": [],
   "author": "",
@@ -30,7 +31,7 @@
     "@types/react-dom": "^19.2.4",
     "@vitejs/plugin-react": "^6.1.0",
     "electron": "^43.4.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.15.7",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vite-plugin-electron": "^1.1.1",
@@ -38,8 +39,79 @@
   },
   "dependencies": {
     "electron-store": "^11.0.2",
+    "electron-updater": "^6.8.9",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "v8-compile-cache": "^2.4.0"
+  },
+  "build": {
+    "appId": "cc11001100.electron.example-001",
+    "copyright": "CC11001100",
+    "productName": "example-001",
+    "directories": {
+      "buildResources": "build",
+      "output": "release"
+    },
+    "nsis": {
+      "oneClick": false,
+      "language": "2052",
+      "perMachine": true,
+      "allowToChangeInstallationDirectory": true
+    },
+    "dmg": {
+      "background": "res/background.png",
+      "icon": "build/icons/icon.icns",
+      "iconSize": 100,
+      "contents": [
+        {
+          "x": 380,
+          "y": 180,
+          "type": "link",
+          "path": "/Applications"
+        },
+        {
+          "x": 130,
+          "y": 180,
+          "type": "file"
+        }
+      ],
+      "window": {
+        "x": 100,
+        "y": 100,
+        "width": 500,
+        "height": 300
+      }
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "icon": "libs/ele.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "files": [
+      "dist/electron/**/*",
+      "dist/renderer/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "electron/libs",
+        "to": "libs"
+      }
+    ],
+    "extends": null
   }
 }

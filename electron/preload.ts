@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import { read } from 'node:fs';
 
 // 暴露版本信息和 API 到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -31,4 +32,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 渲染进程通知主进程：业务就绪
   notifyAppReady: () => ipcRenderer.invoke('app:ready'),
+  saveFile: (content: string) => {
+    ipcRenderer.send('saveFile', content);
+  },
+  readFile: () => {
+    return new Promise<string>((resolve, reject) => {
+      ipcRenderer.once('readFileResponse', (event, response) => {
+        if (response.success) {
+          resolve(response.content);
+        } else {
+          reject(new Error(response.message));
+        }
+      });
+      ipcRenderer.send('readFile');
+    });
+  },
+  // send: (channel, data) => ipcRenderer.send(channel, data),
+  // on: (channel, func) => ipcRenderer.on(channel, (event, ...args) => func(...args)),
+  // invoke: (channel, data) => ipcRenderer.invoke(channel, data)
 });

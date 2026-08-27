@@ -14,7 +14,9 @@ export interface IElectronAPI {
   platform: string;
   ping: () => Promise<string>;
   onLoadingFadeOut: (callback: () => void) => void
-  notifyAppReady: () => Promise<boolean>
+  notifyAppReady: () => Promise<boolean>,
+  saveFile: (content: string) => void,
+  readFile: (fileName: string) => Promise<string>,
 }
 
 declare global {

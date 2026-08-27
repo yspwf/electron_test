@@ -1,6 +1,7 @@
 import 'v8-compile-cache';
-import { app, BrowserWindow, globalShortcut, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen } from 'electron'
 import path from 'node:path'
+import fs from 'node:fs';
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
@@ -118,7 +119,10 @@ const createMainWindow = () => {
       contextIsolation: true,   // 必须开启，配合 preload 使用
       nodeIntegration: false,   // 渲染进程不直接集成 Node
       partition: 'persist:windows-id', // 持久化存储分区
+      webSecurity: true       // 启用Web安全
     },
+    // icon: path.join(__dirname, 'libs/ele.png')
+    icon: app.isPackaged ? path.join(process.resourcesPath, 'libs/ele.png') : path.join(app.getAppPath(), 'electron/libs/ele.png')
   })
 
   // 开发环境加载 Vite dev server
@@ -141,7 +145,6 @@ const createMainWindow = () => {
       })
     }
   })
-
 
   mainWindow.on('closed', () => {
     // 释放窗口资源
@@ -178,6 +181,8 @@ if (!gotTheLock) {
       if (win.isMinimized()) win.restore();
       win.focus();
     }
+
+     dialog.showErrorBox('Welcome Back', `You arrived from: ${commandLine.pop()}`)
   })
 
   app.whenReady().then(()=> {
@@ -208,6 +213,55 @@ if (!gotTheLock) {
 ipcMain.handle('ping', () => {
   return 'pong';
 });
+
+const isSafePath = (filePath: string): boolean => {
+  const normalized = path.normalize(filePath);
+
+  return !normalized.includes('..') && normalized.startsWith(process.cwd());
+}
+
+
+ipcMain.on('saveFile', (event, content: string) => {
+
+  const directory = 'D:\\www\\newEle\\electron\\data';
+
+  fs.mkdir(directory, { recursive: true }, (err) => {
+    if (err) {
+      console.error('创建目录失败:', err);
+      event.reply('saveFileResponse', { success: false, message: '创建目录失败' });
+      return;
+    }
+  });
+
+  const filePath = path.join(directory, 'data.txt');
+  fs.writeFile(filePath, content, (err) => {
+    if (err) {
+      console.error('保存文件失败:', err);
+      event.reply('saveFileResponse', { success: false, message: '保存文件失败' });
+    } else {
+      console.log('文件已保存:', filePath);
+      event.reply('saveFileResponse', { success: true, message: '文件已保存' });
+    }
+  });
+});
+
+ipcMain.on('readFile', (event) => {
+  const filePath = path.join('D:\\www\\newEle\\electron\\data', 'data.txt');
+  if(!isSafePath(filePath)){
+     event.reply('readFileResponse', { success: false, message: '非法文件路径' });
+  }
+
+
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('读取文件失败:', err);
+      event.reply('readFileResponse', { success: false, message: '读取文件失败' });
+    } else {
+      event.reply('readFileResponse', { success: true, content: data });
+    }
+  });
+});
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
