@@ -4,6 +4,7 @@ import { resolve } from 'node:path'
 import electron from 'vite-plugin-electron'
 import renderer from 'vite-plugin-electron-renderer'
 
+
 export default defineConfig({
   plugins: [
     react({}),
@@ -97,6 +98,9 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  optimizeDeps: {
+    include: ['monaco-editor'],
+  },
   base: './',
   build: {
     outDir: 'dist/renderer',
@@ -113,9 +117,30 @@ export default defineConfig({
            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'react-vendor'
           }
+          
+           // 1. 体积超过 200KB 的依赖独立拆分
+          if (id.includes('node_modules')) {
+            // if (id.includes('echarts')) return 'echarts-vendor';
+            // if (id.includes('antd')) return 'antd-vendor';
+            // if (id.includes('react')) return 'react-vendor';
+            if (id.includes('monaco-editor')) return 'editor-vendor';
+          }
+
           if (id.includes('node_modules/react-router')) {
             return 'router-vendor'
           }
+
+            // 2. 业务代码按路由拆分
+          if (id.includes('src/pages/')) {
+            const match = id.match(/src\/pages\/([^/]+)/);
+            if (match) return `page-${match[1]}`;
+          }
+
+          // 3. 共享工具函数提取到 common
+          if (id.includes('src/utils/') || id.includes('src/hooks/')) {
+            return 'common';
+          }
+
           if (id.includes('node_modules')) {
             return 'vendor'
           }
