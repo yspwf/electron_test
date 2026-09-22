@@ -1,366 +1,116 @@
-import 'v8-compile-cache';
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, screen, Tray } from 'electron'
-import path from 'node:path'
-import fs from 'node:fs';
-import { createMenu } from './menu';
-import { createTray } from './tray';
-
-let mainWindow: BrowserWindow | null = null;
-let splashWindow: BrowserWindow | null = null;
-
-
-const fadeOutSplash = (splashWindow: BrowserWindow | null, callback: () => void) => {
-  if (!splashWindow) return callback();
-
-
-  const duration = 300; // 淡出动画持续时间，单位：毫秒
-  const steps = 30; // 动画分成多少步
-  const interval = duration / steps; // 每步的时间间隔
-  let currentOpacity = 1; // 当前透明度
-
-  const fadeOutInterval = setInterval(() => {
-    currentOpacity -= 1 / steps;
-    if(currentOpacity <= 0) {
-      clearInterval(fadeOutInterval);
-      splashWindow?.close();
-      splashWindow = null;
-      callback();
-      return;
-    }
-
-    if (splashWindow) {
-      splashWindow.setOpacity(Math.max(currentOpacity, 0));
-      return;
-    }
-  }, interval);
-}
-
-
-// 主窗口淡入动画（透明度 0 → 1）
-function fadeInMainWindow(mainWindow: BrowserWindow | null) {
-  if (!mainWindow) return;
-  const duration = 300;
-  const steps = 20;
-  const stepTime = duration / steps;
-  let currentOpacity = 0;
-
-  mainWindow.show();          // 显示窗口（此时透明度为 0）
-  mainWindow.setOpacity(0);
-  mainWindow.focus();         // 聚焦窗口
-
-  const interval = setInterval(() => {
-    currentOpacity += 1 / steps;
-    if (currentOpacity >= 1) {
-      clearInterval(interval);
-      mainWindow.setOpacity(1);
-    } else {
-      mainWindow.setOpacity(currentOpacity);
-    }
-  }, stepTime);
-}
-
-
-const createSplashWindow = () => {
-  splashWindow = new BrowserWindow({
-    width: 400,
-    height: 400,
-    frame: false,
-    transparent: true,
-    alwaysOnTop: true,
-    resizable: false,
-    useContentSize: false,
-    maximizable: false,  //禁止双击放大
-    minimizable: false,
-    center: true,
-    show: false,
-    webPreferences: {
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: path.join(__dirname, 'preload.js'),
-    },
-  })
-
-  splashWindow.loadFile(path.join(__dirname, '../renderer/splash.html'));
-
-  splashWindow.once('ready-to-show', () => {
-    splashWindow?.show();
-  })
-
-  splashWindow.on('closed', () => {
-    splashWindow = null;
-  })
-}
-
-console.log("app.isPackaged =====", app.isPackaged);
-
-const createMainWindow = () => {
-  mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    titleBarStyle:'hiddenInset', // 隐藏标题栏，保留窗口控制按钮
-    // titleBarStyle: 'hidden', // 隐藏标题栏，保留窗口控制按钮
-    visualEffectState: 'active', // 启用毛玻璃效果
-    // backgroundColor: '#00000000', // 窗口背景色
-    // transparent: true, // 设置透明窗体
-    title: '桌面开发App',
-    backgroundColor: '#f2f2f2',
-    useContentSize: false, // 窗口的实际尺寸是否为web页面的尺寸，如果是true包括窗口边框的大小 稍微会大点 默认是false
-    center: true, // 窗口是否在屏幕居中
-    resizable: true, // 窗口大小是否可调整
-    movable: true, // 窗口是否可移动
-    // minimizable: true, // 窗口是否可最小化
-    // maximizable: true, // 窗口是否可以最大化
-    // closable: true, // 窗口是否可关闭
-    focusable: true, // 窗口是否可聚焦,
-    // alwaysOnTop: true, // 窗口是否永远在别的窗口之上
-    // fullscreen: true, // 窗口是否全屏
-    // skipTaskbar: true, // 是否在任务栏中显示窗口
-    hasShadow: true, // 窗口是否有阴影
-    opacity: 1, // 窗口的透明度
-    show: false, // 窗口是否显示
-    webPreferences: {
-      // 关键：指定 preload 脚本路径
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,   // 必须开启，配合 preload 使用
-      nodeIntegration: false,   // 渲染进程不直接集成 Node
-      partition: 'persist:windows-id', // 持久化存储分区
-      webSecurity: true,      // 启用Web安全
-      webviewTag: true,    // 启用自定义菜单栏
-    },
-    // icon: path.join(__dirname, 'libs/ele.png')
-    icon: app.isPackaged ? path.join(process.resourcesPath, 'libs/ele.png') : path.join(app.getAppPath(), 'electron/libs/ele.png')
-  })
-
-  // 开发环境加载 Vite dev server
-  // if (process.env.VITE_DEV_SERVER_URL) {
-  //   mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-  //   mainWindow.webContents.openDevTools()
-  // } else {
-  //   // 生产环境加载构建后的文件
-  //   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
-  // }
-
-  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
-
-  mainWindow.once('ready-to-show', () => {
-    fadeInMainWindow(mainWindow);
-    // 关闭启动页
-    if (splashWindow) {
-      fadeOutSplash(splashWindow, () => {
-        console.log('Splash window faded out and closed.');
-        splashWindow?.close();
-        splashWindow = null;
-      })
-    }
-  })
-
-  mainWindow.on('closed', () => {
-    console.log('窗口关闭');
-    // 释放窗口资源
-    mainWindow = null;
-  })
-
-}
-
-
-function logDisplayInfo() {
-  const allDisplays = screen.getAllDisplays();
-  console.log(`检测到 ${allDisplays.length} 个显示器:`);
- 
-  allDisplays.forEach((display, index) => {
-    console.log(`\n--- 显示器 ${index} ---`);
-    console.log(`  物理尺寸: ${display.size.width} x ${display.size.height}`);
-    console.log(`  桌面位置: (x: ${display.bounds.x}, y: ${display.bounds.y})`);
-    console.log(`  可用工作区: (x: ${display.workArea.x}, y: ${display.workArea.y}, 宽: ${display.workAreaSize.width}, 高: ${display.workAreaSize.height})`);
-    console.log(`  缩放比例: ${display.scaleFactor}`);
-    console.log(`  是否为主显示器: ${screen.getPrimaryDisplay().id === display.id}`);
-  });
-}
-
-
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  app.quit();
-} else {
-  app.on('second-instance', (event, commandLine, workingDirectory) => {
-    // 当运行第二个实例时,将会聚焦到win这个窗口
-    const win = BrowserWindow.getAllWindows()[0];
-    if (win) {
-      if (win.isMinimized()) win.restore();
-      win.focus();
-
-      // 解决添加系统托盘后，点击应用图标无法唤起窗口的问题
-      if (!win.isVisible()) {
-        win.show();
-        win.setSkipTaskbar(true);
-      }
-    }
-
-     dialog.showErrorBox('Welcome Back', `You arrived from: ${commandLine.pop()}`)
-  })
-
-  app.whenReady().then(()=> {
-    createSplashWindow();
-    createMainWindow();
-    // logDisplayInfo(); // 调用函数输出显示器信息
-
-    createMenu(mainWindow!);
-    createTray(mainWindow!);
-
-    
-
-    mainWindow?.on('close', (event) => {
-      console.log('mainWindow close event triggered');
-      event.preventDefault();
-      mainWindow?.hide();
-      mainWindow?.setSkipTaskbar(false);
-
-      // const allWindows = BrowserWindow.getAllWindows();
-      // if (allWindows.length >= 1) {
-      //   event.preventDefault();
-
-      //   dialog.showMessageBox(mainWindow!, {
-      //     type: 'question',
-      //     title: '确认退出',
-      //     buttons: ['是', '否'],
-      //     message: '确定要关闭应用吗？',
-      //     defaultId: 0, // 默认选中“否”
-      //     cancelId: 0,  // 按下 Esc 键时的默认行为
-      //   }).then((result) => {
-      //     console.log('Dialog result:', result);
-      //     if (result.response === 0) { // 用户选择了“是”
-      //       console.log('User confirmed exit. Quitting app...');
-      //       allWindows.forEach(win => {
-      //         win.destroy(); // 直接销毁窗口，避免触发 close 事件
-      //       });
-      //       app.quit();
-      //     }
-      //   });
-      // }
-    });
-
-
-
-    globalShortcut.register('CommandOrControl+F5', () => {
-      // app.relaunch();
-      // app.exit();
-      app.quit()
-    })
-
-
-
-    globalShortcut.register('Control+Shift+i', function () {
-      mainWindow?.webContents.openDevTools();
-    })
-
-
-    globalShortcut.register('Control+Shift+F4', function () {
-      mainWindow?.reload();
-    })
-
-    globalShortcut.register('Control+Shift+F11', function () {
-      if (mainWindow) {
-        if (mainWindow.isFullScreen()) {
-          mainWindow.setFullScreen(false);
-          mainWindow.setMenuBarVisibility(true);
-        } else {
-          mainWindow.setFullScreen(true);
-          mainWindow.setMenuBarVisibility(false);
-        }
-      }
-    })
-
-
-    app.on('activate', () => {
-      if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
-    })
-
-
-  })
-}
-
-
-
-
-
-ipcMain.handle('ping', () => {
-  return 'pong';
-});
-
-const isSafePath = (filePath: string): boolean => {
-  const normalized = path.normalize(filePath);
-  return !normalized.includes('..') && normalized.startsWith(process.cwd());
-}
-
-
-ipcMain.on('saveFile', (event, content: string) => {
-
-  const directory = 'D:\\www\\newEle\\electron\\data';
-
-  fs.mkdir(directory, { recursive: true }, (err) => {
-    if (err) {
-      console.error('创建目录失败:', err);
-      event.reply('saveFileResponse', { success: false, message: '创建目录失败' });
-      return;
-    }
-  });
-
-  const filePath = path.join(directory, 'data.txt');
-  fs.writeFile(filePath, content, (err) => {
-    if (err) {
-      console.error('保存文件失败:', err);
-      event.reply('saveFileResponse', { success: false, message: '保存文件失败' });
-    } else {
-      console.log('文件已保存:', filePath);
-      event.reply('saveFileResponse', { success: true, message: '文件已保存' });
-    }
-  });
-});
-
-ipcMain.on('readFile', (event) => {
-  const filePath = path.join('D:\\www\\newEle\\electron\\data', 'data.txt');
-  if(!isSafePath(filePath)){
-     event.reply('readFileResponse', { success: false, message: '非法文件路径' });
-  }
-
-
-  fs.readFile(filePath, 'utf8', (err, data) => {
-    if (err) {
-      console.error('读取文件失败:', err);
-      event.reply('readFileResponse', { success: false, message: '读取文件失败' });
-    } else {
-      event.reply('readFileResponse', { success: true, content: data });
-    }
-  });
-});
-
-ipcMain.on('showContextMenu', async (event) => {
-  const contextTemplate = [
-    {
-      label: '自定义菜单项 1',  
-      click: () => {
-        console.log('自定义菜单项 1 被点击');
-      }
-    }
-  ];
-
-
-  const menu = Menu.buildFromTemplate(contextTemplate);
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (win) {
-    menu.popup({ window: win });
-  }
+// src/main/main.ts
+import { app, BaseWindow, WebContentsView, ipcMain } from 'electron'
+import path from 'path'
+import { TabManager } from './TabManager'
+
+let mainWindow: BaseWindow | null = null
+let tabManager: TabManager | null = null
+
+// ✅ 新增：用于承载标签栏的 WebContentsView
+let tabBarView: WebContentsView | null = null
+
+ipcMain.handle('tabs:create', () => {
+  return tabManager?.createTab()
 })
 
+ipcMain.handle('tabs:switch', (_e, id: string) => {
+  tabManager?.switchTab(id)
+})
+
+ipcMain.handle('tabs:close', (_e, id: string) => {
+  tabManager?.closeTab(id)
+})
+
+ipcMain.handle('tabs:list', () => {
+  return tabManager?.getTabList() ?? []
+})
+
+async function bootstrap() {
+  mainWindow = new BaseWindow({
+    width: 1400,
+    height: 900,
+    title: 'Markdown Tabs',
+  })
+
+  // ✅ 创建标签栏视图
+  tabBarView = new WebContentsView({
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+
+  tabBarView.webContents.openDevTools({ mode: 'detach' });
+
+  // 将标签栏视图添加到窗口
+  mainWindow.contentView.addChildView(tabBarView);
+
+
+  // ✅ 通过 webContents 加载页面
+  await tabBarView.webContents.loadFile(
+    path.join(__dirname, '../renderer/tabbar.html')
+  )
+
+  // 设置标签栏高度（例如 40px）
+  const TAB_BAR_HEIGHT = 40
+  const { width, height } = mainWindow.getContentBounds()
+
+  // 标签栏固定在顶部
+  tabBarView.setBounds({
+    x: 0,
+    y: 0,
+    width,
+    height: TAB_BAR_HEIGHT,
+  })
+
+  // 创建标签页管理器
+  // tabManager = new TabManager(mainWindow, TAB_BAR_HEIGHT)
+  tabManager = new TabManager(mainWindow, tabBarView, TAB_BAR_HEIGHT)
+
+  // 处理窗口大小变化
+  mainWindow.on('resize', () => {
+    const { width, height } = mainWindow!.getContentBounds()
+
+    // 调整标签栏尺寸
+    tabBarView?.setBounds({
+      x: 0,
+      y: 0,
+      width,
+      height: TAB_BAR_HEIGHT,
+    })
+
+    // 调整标签页视图
+    tabManager?.handleResize()
+  })
+
+  // 窗口关闭时销毁所有资源
+  mainWindow.on('closed', () => {
+    tabManager?.destroyAll()
+    tabManager = null
+
+    // ✅ 销毁标签栏的 webContents，防止内存泄漏
+    if (tabBarView && !tabBarView.webContents.isDestroyed()) {
+      tabBarView.webContents.close()
+    }
+    tabBarView = null
+
+    mainWindow = null
+  })
+
+  // 初始创建一个标签页
+  tabManager.createTab()
+}
+
+app.whenReady().then(bootstrap).catch(console.error)
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
-app.on('will-quit', () => {
-
-  // 注销所有快捷键
-  globalShortcut.unregisterAll();
-});
-
+app.on('activate', () => {
+  if (BaseWindow.getAllWindows().length === 0) {
+    void bootstrap()
+  }
+})

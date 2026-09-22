@@ -20,6 +20,7 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist/electron',
+            emptyOutDir: true,
             sourcemap: true,
             minify: false,
             rollupOptions: {
@@ -38,6 +39,7 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist/electron',
+            emptyOutDir: true,
             sourcemap: true,
             minify: false,
             lib: {
@@ -112,6 +114,7 @@ export default defineConfig({
       input: {
         index: resolve(__dirname, 'index.html'),
         splash: resolve(__dirname, 'splash.html'),
+        tabbar: resolve(__dirname, 'tabbar.html'),
         main: resolve(__dirname, 'renderer/main.tsx'),
       },
       output: {

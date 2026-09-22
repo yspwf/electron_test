@@ -25,6 +25,7 @@
     }
   },
   "devDependencies": {
+    "@types/dompurify": "^3.2.0",
     "@types/electron": "^1.6.12",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
@@ -41,8 +42,10 @@
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
     "crypto": "^1.0.1",
+    "dompurify": "^3.4.15",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.9",
+    "marked": "^18.0.13",
     "monaco-editor": "^0.56.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

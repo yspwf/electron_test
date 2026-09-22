@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import { read } from 'node:fs';
+import type { TabItem } from '../types/electron.d.ts'
 
 // 暴露版本信息和 API 到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', {
@@ -35,22 +35,69 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveFile: (content: string) => {
     ipcRenderer.send('saveFile', content);
   },
-  readFile: () => {
-    return new Promise<string>((resolve, reject) => {
-      ipcRenderer.once('readFileResponse', (event, response) => {
-        if (response.success) {
-          resolve(response.content);
-        } else {
-          reject(new Error(response.message));
-        }
-      });
-      ipcRenderer.send('readFile');
-    });
-  },
+  // readFile: () => {
+  //   return new Promise<string>((resolve, reject) => {
+  //     ipcRenderer.once('readFileResponse', (event, response) => {
+  //       if (response.success) {
+  //         resolve(response.content);
+  //       } else {
+  //         reject(new Error(response.message));
+  //       }
+  //     });
+  //     ipcRenderer.send('readFile');
+  //   });
+  // },
   showContextMenu: () => {
     ipcRenderer.send('showContextMenu');
-  }
+  },
+  // switchTab: (idx: number) => {
+  //   ipcRenderer.send('switch-tab', idx);
+  // },
+  // closeTab: (idx: number) => {
+  //   ipcRenderer.send('close-tab', idx);
+  // },
   // send: (channel, data) => ipcRenderer.send(channel, data),
   // on: (channel, func) => ipcRenderer.on(channel, (event, ...args) => func(...args)),
   // invoke: (channel, data) => ipcRenderer.invoke(channel, data)
+  /**
+   * 监听主进程发送的初始化数据（标签 id 和文件路径）
+   */
+  onInit: (callback: (data: { id: string; filePath: string | null }) => void) => {
+    ipcRenderer.on('tab:init', (_event, data) => callback(data))
+  },
+
+  /**
+   * 通知主进程更新标签标题
+   */
+  setTitle: (title: string) => {
+    ipcRenderer.send('tab:set-title', title)
+  },
+
+  /**
+   * 读取文件内容
+   */
+  readFile: (filePath: string): Promise<string> => {
+    return ipcRenderer.invoke('file:read', filePath)
+  },
+
+  /**
+   * 写入文件内容
+   */
+  writeFile: (filePath: string, content: string): Promise<void> => {
+    return ipcRenderer.invoke('file:write', filePath, content)
+  },
+
+  // ===== 标签页操作 =====
+  createTab: () => ipcRenderer.invoke('tabs:create'),
+  switchTab: (id: string) => ipcRenderer.invoke('tabs:switch', id),
+  closeTab: (id: string) => ipcRenderer.invoke('tabs:close', id),
+  listTabs: () => ipcRenderer.invoke('tabs:list'),
+
+  onTabsUpdated: (callback: (tabs: TabItem[]) => void) => {
+    // ⚠️ 先移除旧的监听，避免热重载时重复注册
+    ipcRenderer.removeAllListeners('tabs:updated')
+    ipcRenderer.on('tabs:updated', (_event, tabs: TabItem[]) => {
+      callback(tabs)
+    })
+  },
 });
