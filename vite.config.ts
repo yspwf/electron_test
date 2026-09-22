@@ -20,7 +20,7 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist/electron',
-            emptyOutDir: true,
+            emptyOutDir: false,
             sourcemap: true,
             minify: false,
             rollupOptions: {
@@ -39,7 +39,7 @@ export default defineConfig({
         vite: {
           build: {
             outDir: 'dist/electron',
-            emptyOutDir: true,
+            emptyOutDir: false,
             sourcemap: true,
             minify: false,
             lib: {

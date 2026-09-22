@@ -21,8 +21,16 @@ ipcMain.handle('tabs:close', (_e, id: string) => {
   tabManager?.closeTab(id)
 })
 
+ipcMain.handle('tabs:rename', (_e, id: string, title: string) => {
+  tabManager?.setTabTitle(id, title)
+})
+
 ipcMain.handle('tabs:list', () => {
   return tabManager?.getTabList() ?? []
+})
+
+ipcMain.on('tab:set-title', (event, title: string) => {
+  tabManager?.setTabTitleByWebContents(event.sender, title)
 })
 
 async function bootstrap() {
@@ -91,9 +99,6 @@ async function bootstrap() {
     tabManager = null
 
     // ✅ 销毁标签栏的 webContents，防止内存泄漏
-    if (tabBarView && !tabBarView.webContents.isDestroyed()) {
-      tabBarView.webContents.close()
-    }
     tabBarView = null
 
     mainWindow = null

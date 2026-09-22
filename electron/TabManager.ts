@@ -1,5 +1,6 @@
 // src/main/TabManager.ts
 import { BaseWindow, WebContentsView } from 'electron'
+import type { WebContents } from 'electron'
 import path from 'path'
 
 export interface TabInfo {
@@ -65,6 +66,9 @@ export class TabManager {
       const tab = this.tabs.get(id)
       if (tab) {
         tab.title = title
+        if (tab.id === this.activeTabId) {
+          this.updateWindowTitle(title)
+        }
         this.notifyTabBar()
       }
     })
@@ -83,6 +87,7 @@ export class TabManager {
     if (!target) return
 
     this.activeTabId = id
+    this.updateWindowTitle(target.title)
 
     const { width, height } = this.window.getContentBounds()
     const contentHeight = height - this.tabBarHeight
@@ -100,6 +105,37 @@ export class TabManager {
       height: contentHeight,
     })
     target.view.setVisible(true)
+
+    this.notifyTabBar()
+  }
+
+  setTabTitleByWebContents(webContents: WebContents, title: string): void {
+    const nextTitle = title.trim() || 'Untitled'
+
+    for (const tab of this.tabs.values()) {
+      if (tab.view.webContents === webContents) {
+        tab.title = nextTitle
+
+        if (tab.id === this.activeTabId) {
+          this.updateWindowTitle(nextTitle)
+        }
+
+        this.notifyTabBar()
+        return
+      }
+    }
+  }
+
+  setTabTitle(id: string, title: string): void {
+    const tab = this.tabs.get(id)
+    if (!tab) return
+
+    const nextTitle = title.trim() || 'Untitled'
+    tab.title = nextTitle
+
+    if (tab.id === this.activeTabId) {
+      this.updateWindowTitle(nextTitle)
+    }
 
     this.notifyTabBar()
   }
@@ -179,14 +215,31 @@ export class TabManager {
     })
   }
 
+  private updateWindowTitle(title: string): void {
+    this.window.setTitle(`${title} - Markdown Tabs`)
+  }
+
   destroyAll(): void {
     this.tabs.forEach((tab) => {
-      this.window.contentView.removeChildView(tab.view)
-      if (!tab.view.webContents.isDestroyed()) {
-        tab.view.webContents.close()
-      }
+      this.safeRemoveAndCloseView(tab.view)
     })
     this.tabs.clear()
     this.activeTabId = null
+  }
+
+  private safeRemoveAndCloseView(view: WebContentsView): void {
+    try {
+      this.window.contentView.removeChildView(view)
+    } catch {
+      // The window may already have destroyed child views while closing.
+    }
+
+    try {
+      if (!view.webContents.isDestroyed()) {
+        view.webContents.close()
+      }
+    } catch {
+      // Accessing webContents can throw after the underlying object is destroyed.
+    }
   }
 }

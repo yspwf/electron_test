@@ -91,6 +91,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   createTab: () => ipcRenderer.invoke('tabs:create'),
   switchTab: (id: string) => ipcRenderer.invoke('tabs:switch', id),
   closeTab: (id: string) => ipcRenderer.invoke('tabs:close', id),
+  renameTab: (id: string, title: string) => ipcRenderer.invoke('tabs:rename', id, title),
   listTabs: () => ipcRenderer.invoke('tabs:list'),
 
   onTabsUpdated: (callback: (tabs: TabItem[]) => void) => {

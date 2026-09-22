@@ -31,6 +31,7 @@ export interface IElectronAPI {
   createTab: () => Promise<string>,
   switchTab: (id: string) => Promise<void>,
   closeTab: (id: string) => Promise<void>,
+  renameTab: (id: string, title: string) => Promise<void>,
   listTabs: () => Promise<TabItem[]>,
   onTabsUpdated: (callback: (tabs: TabItem[]) => void) => void,
 }
