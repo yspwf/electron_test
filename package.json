@@ -29,6 +29,7 @@
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "@types/react-router-dom": "^5.3.3",
     "@vitejs/plugin-react": "^6.1.0",
     "electron": "^43.4.1",
     "electron-builder": "^26.15.7",
@@ -39,11 +40,14 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
+    "crypto": "^1.0.1",
     "electron-store": "^11.0.2",
     "electron-updater": "^6.8.9",
     "monaco-editor": "^0.56.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.3",
+    "socket.io-client": "^4.8.3",
     "v8-compile-cache": "^2.4.0"
   },
   "build": {

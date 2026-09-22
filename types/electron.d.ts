@@ -17,6 +17,7 @@ export interface IElectronAPI {
   notifyAppReady: () => Promise<boolean>,
   saveFile: (content: string) => void,
   readFile: (fileName: string) => Promise<string>,
+  showContextMenu: () => void
 }
 
 declare global {

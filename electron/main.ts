@@ -1,7 +1,9 @@
 import 'v8-compile-cache';
-import { app, BrowserWindow, dialog, globalShortcut, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, dialog, globalShortcut, ipcMain, Menu, screen, Tray } from 'electron'
 import path from 'node:path'
 import fs from 'node:fs';
+import { createMenu } from './menu';
+import { createTray } from './tray';
 
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
@@ -89,12 +91,15 @@ const createSplashWindow = () => {
   })
 }
 
-
+console.log("app.isPackaged =====", app.isPackaged);
 
 const createMainWindow = () => {
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    titleBarStyle:'hiddenInset', // 隐藏标题栏，保留窗口控制按钮
+    // titleBarStyle: 'hidden', // 隐藏标题栏，保留窗口控制按钮
+    visualEffectState: 'active', // 启用毛玻璃效果
     // backgroundColor: '#00000000', // 窗口背景色
     // transparent: true, // 设置透明窗体
     title: '桌面开发App',
@@ -119,20 +124,23 @@ const createMainWindow = () => {
       contextIsolation: true,   // 必须开启，配合 preload 使用
       nodeIntegration: false,   // 渲染进程不直接集成 Node
       partition: 'persist:windows-id', // 持久化存储分区
-      webSecurity: true       // 启用Web安全
+      webSecurity: true,      // 启用Web安全
+      webviewTag: true,    // 启用自定义菜单栏
     },
     // icon: path.join(__dirname, 'libs/ele.png')
     icon: app.isPackaged ? path.join(process.resourcesPath, 'libs/ele.png') : path.join(app.getAppPath(), 'electron/libs/ele.png')
   })
 
   // 开发环境加载 Vite dev server
-  if (process.env.VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
-    mainWindow.webContents.openDevTools()
-  } else {
-    // 生产环境加载构建后的文件
-    mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
-  }
+  // if (process.env.VITE_DEV_SERVER_URL) {
+  //   mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL)
+  //   mainWindow.webContents.openDevTools()
+  // } else {
+  //   // 生产环境加载构建后的文件
+  //   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'))
+  // }
+
+  mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
   mainWindow.once('ready-to-show', () => {
     fadeInMainWindow(mainWindow);
@@ -147,6 +155,7 @@ const createMainWindow = () => {
   })
 
   mainWindow.on('closed', () => {
+    console.log('窗口关闭');
     // 释放窗口资源
     mainWindow = null;
   })
@@ -180,6 +189,12 @@ if (!gotTheLock) {
     if (win) {
       if (win.isMinimized()) win.restore();
       win.focus();
+
+      // 解决添加系统托盘后，点击应用图标无法唤起窗口的问题
+      if (!win.isVisible()) {
+        win.show();
+        win.setSkipTaskbar(true);
+      }
     }
 
      dialog.showErrorBox('Welcome Back', `You arrived from: ${commandLine.pop()}`)
@@ -188,22 +203,81 @@ if (!gotTheLock) {
   app.whenReady().then(()=> {
     createSplashWindow();
     createMainWindow();
-    logDisplayInfo(); // 调用函数输出显示器信息
+    // logDisplayInfo(); // 调用函数输出显示器信息
+
+    createMenu(mainWindow!);
+    createTray(mainWindow!);
+
+    
+
+    mainWindow?.on('close', (event) => {
+      console.log('mainWindow close event triggered');
+      event.preventDefault();
+      mainWindow?.hide();
+      mainWindow?.setSkipTaskbar(false);
+
+      // const allWindows = BrowserWindow.getAllWindows();
+      // if (allWindows.length >= 1) {
+      //   event.preventDefault();
+
+      //   dialog.showMessageBox(mainWindow!, {
+      //     type: 'question',
+      //     title: '确认退出',
+      //     buttons: ['是', '否'],
+      //     message: '确定要关闭应用吗？',
+      //     defaultId: 0, // 默认选中“否”
+      //     cancelId: 0,  // 按下 Esc 键时的默认行为
+      //   }).then((result) => {
+      //     console.log('Dialog result:', result);
+      //     if (result.response === 0) { // 用户选择了“是”
+      //       console.log('User confirmed exit. Quitting app...');
+      //       allWindows.forEach(win => {
+      //         win.destroy(); // 直接销毁窗口，避免触发 close 事件
+      //       });
+      //       app.quit();
+      //     }
+      //   });
+      // }
+    });
+
+
 
     globalShortcut.register('CommandOrControl+F5', () => {
       // app.relaunch();
-      app.exit();
+      // app.exit();
+      app.quit()
     })
+
+
 
     globalShortcut.register('Control+Shift+i', function () {
       mainWindow?.webContents.openDevTools();
     })
 
+
+    globalShortcut.register('Control+Shift+F4', function () {
+      mainWindow?.reload();
+    })
+
+    globalShortcut.register('Control+Shift+F11', function () {
+      if (mainWindow) {
+        if (mainWindow.isFullScreen()) {
+          mainWindow.setFullScreen(false);
+          mainWindow.setMenuBarVisibility(true);
+        } else {
+          mainWindow.setFullScreen(true);
+          mainWindow.setMenuBarVisibility(false);
+        }
+      }
+    })
+
+
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) createMainWindow()
     })
-  })
 
+
+  })
 }
 
 
@@ -216,7 +290,6 @@ ipcMain.handle('ping', () => {
 
 const isSafePath = (filePath: string): boolean => {
   const normalized = path.normalize(filePath);
-
   return !normalized.includes('..') && normalized.startsWith(process.cwd());
 }
 
@@ -262,12 +335,32 @@ ipcMain.on('readFile', (event) => {
   });
 });
 
+ipcMain.on('showContextMenu', async (event) => {
+  const contextTemplate = [
+    {
+      label: '自定义菜单项 1',  
+      click: () => {
+        console.log('自定义菜单项 1 被点击');
+      }
+    }
+  ];
+
+
+  const menu = Menu.buildFromTemplate(contextTemplate);
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (win) {
+    menu.popup({ window: win });
+  }
+})
+
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
 app.on('will-quit', () => {
-  globalShortcut.unregisterAll()
+
+  // 注销所有快捷键
+  globalShortcut.unregisterAll();
 });
 

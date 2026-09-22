@@ -1,7 +1,7 @@
 import { StrictMode, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import './app.css'
-import App from './App';
+import Monaco from './Monaco';
 // import { BasicEditor } from './BasicEditor';
 
 // function App() {
@@ -40,9 +40,13 @@ import App from './App';
 //   );
 // }
 
+const Router = () => {
+  const [currentPage, setCurrentPage] = useState('home');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <App />
+    <Monaco />
   </StrictMode>
 );
 

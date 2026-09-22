@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 // import Editor from '@monaco-editor/react';
 import { loader } from '@monaco-editor/react';
 import * as monaco from 'monaco-editor';
@@ -96,7 +96,7 @@ const files = {
 
 type FileName = keyof typeof files;
 
-function App() {
+function Monaco() {
   const [language, setLanguage] = useState('typescript');
 
   const [fileName, setFileName] = useState<FileName>('script.js');
@@ -106,6 +106,14 @@ function App() {
    const onChange = (newValue:string | undefined) => {
     console.log(newValue)
   }
+
+  useEffect(() => {
+    console.log('Monaco Editor 已挂载，监听右键菜单事件');
+    document.addEventListener('contextmenu', (e) => {
+      e.preventDefault()
+      window.electronAPI.showContextMenu()
+    })
+  }, []);
 
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
@@ -195,4 +203,4 @@ function App() {
   );
 }
 
-export default App;
+export default Monaco;
