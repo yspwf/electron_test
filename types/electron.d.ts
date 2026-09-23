@@ -27,6 +27,7 @@ export interface IElectronAPI {
   setTitle: (title: string) => void,
   readFile: (filePath: string) => Promise<string>,
   writeFile: (filePath: string, content: string) => Promise<void>,
+  saveMarkdownAs: (content: string, suggestedName?: string) => Promise<string | null>,
   // ===== 标签页操作 =====
   createTab: () => Promise<string>,
   switchTab: (id: string) => Promise<void>,

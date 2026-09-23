@@ -1,5 +1,6 @@
 // src/main/main.ts
-import { app, BaseWindow, WebContentsView, ipcMain } from 'electron'
+import { app, BaseWindow, WebContentsView, ipcMain, dialog } from 'electron'
+import fs from 'node:fs/promises'
 import path from 'path'
 import { TabManager } from './TabManager'
 
@@ -31,6 +32,37 @@ ipcMain.handle('tabs:list', () => {
 
 ipcMain.on('tab:set-title', (event, title: string) => {
   tabManager?.setTabTitleByWebContents(event.sender, title)
+})
+
+ipcMain.handle('file:read', async (_event, filePath: string) => {
+  return fs.readFile(filePath, 'utf8')
+})
+
+ipcMain.handle('file:write', async (_event, filePath: string, content: string) => {
+  await fs.writeFile(filePath, content, 'utf8')
+})
+
+ipcMain.handle('file:save-as', async (_event, content: string, suggestedName = 'Untitled.md') => {
+  const result = await dialog.showSaveDialog({
+    title: '保存 Markdown 文件',
+    defaultPath: suggestedName,
+    filters: [
+      { name: 'Markdown', extensions: ['md', 'markdown'] },
+      { name: 'Text', extensions: ['txt'] },
+      { name: 'All Files', extensions: ['*'] },
+    ],
+  })
+
+  if (result.canceled || !result.filePath) {
+    return null
+  }
+
+  const targetPath = path.extname(result.filePath)
+    ? result.filePath
+    : `${result.filePath}.md`
+
+  await fs.writeFile(targetPath, content, 'utf8')
+  return targetPath
 })
 
 async function bootstrap() {

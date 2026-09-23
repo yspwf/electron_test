@@ -38,8 +38,15 @@ const MarkdownApp = ({ tabId, initialFilePath }: AppProps) => {
   }, [markdown])
 
   const handleSave = useCallback(async () => {
-    if (!filePath) return
-    await window.electronAPI.writeFile(filePath, markdown)
+    if (filePath) {
+      await window.electronAPI.writeFile(filePath, markdown)
+      return
+    }
+
+    const savedPath = await window.electronAPI.saveMarkdownAs(markdown, 'Untitled.md')
+    if (savedPath) {
+      setFilePath(savedPath)
+    }
   }, [filePath, markdown])
 
   useEffect(() => {

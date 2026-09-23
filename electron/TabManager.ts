@@ -16,7 +16,7 @@ export class TabManager {
   private activeTabId: string | null = null
   private idCounter = 0
   private tabBarHeight: number
-    private tabBarView: WebContentsView
+  private tabBarView: WebContentsView
 
   constructor(
     window: BaseWindow,

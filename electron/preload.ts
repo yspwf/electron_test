@@ -86,6 +86,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writeFile: (filePath: string, content: string): Promise<void> => {
     return ipcRenderer.invoke('file:write', filePath, content)
   },
+  saveMarkdownAs: (content: string, suggestedName?: string): Promise<string | null> => {
+    return ipcRenderer.invoke('file:save-as', content, suggestedName)
+  },
 
   // ===== 标签页操作 =====
   createTab: () => ipcRenderer.invoke('tabs:create'),
