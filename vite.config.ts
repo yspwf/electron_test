@@ -1,163 +1,18 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import electron from 'vite-plugin-electron'
-import renderer from 'vite-plugin-electron-renderer'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import { fileURLToPath, URL } from 'node:url';
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  plugins: [
-    react({}),
-    electron([
-      {
-        // Main 脚本
-        entry: 'electron/main.ts',
-        onstart(options) {
-          options.startup()
-        },
-        vite: {
-          build: {
-            outDir: 'dist/electron',
-            emptyOutDir: false,
-            sourcemap: true,
-            minify: false,
-            rollupOptions: {
-              external: ['electron'],
-            },
-          },
-        },
-      },
-      {
-        // Preload 脚本
-        entry: 'electron/preload.ts',
-        onstart(options) {
-          // Notify the Renderer-Process to reload the page when Preload.js is build
-          options.reload()
-        },
-        vite: {
-          build: {
-            outDir: 'dist/electron',
-            emptyOutDir: false,
-            sourcemap: true,
-            minify: false,
-            lib: {
-              entry: 'electron/preload.ts',
-              formats: ['cjs'],
-              fileName: () => 'preload.js',
-            },
-            rollupOptions: {
-              external: ['electron'],
-            },
-          },
-        },
-      }
-    ]),
-    renderer(),
-  ],
-  /* ========================== CSS 配置（规范） ========================== */
-  css: {
-    // 开启 CSS 模块化（组件内样式隔离，避免样式污染）
-    modules: {
-      // 模块化类名命名规则（规范，便于调试）
-      generateScopedName: '[name]-[local]-[hash:8]',
-      // 允许在 CSS 中使用 JS 变量（如 import './style.module.scss?module'）
-      localsConvention: 'camelCaseOnly',
-    },
-    // CSS 预处理器配置（支持 SCSS/SASS，项目常用）
-    // preprocessorOptions: {
-    //   scss: {
-    //     // 全局注入 SCSS 变量/混合器（无需在每个组件中导入）
-    //     additionalData: `
-    //       @import "@/assets/scss/variables.scss";
-    //       @import "@/assets/scss/mixins.scss";
-    //     `,
-    //     // 解决 SCSS 导入路径问题
-    //     includePaths: [resolve('src/assets/scss')],
-    //   },
-    // },
-    // // CSS 后处理器配置（自动添加浏览器前缀，适配不同浏览器）
-    // postcss: {
-    //   plugins: [
-    //     require('autoprefixer')({
-    //       // 适配的浏览器范围（规范，覆盖 95% 以上用户）
-    //       overrideBrowserslist: [
-    //         'last 2 versions',
-    //         '> 1%',
-    //         'iOS >= 14',
-    //         'Android >= 10',
-    //       ],
-    //     }),
-    //   ],
-    // },
-    // 禁止 CSS 内联（生产环境将 CSS 单独打包，便于缓存）
-    // devSourcemap: mode === 'development', // 开发环境开启 CSS SourceMap，便于调试
-  },
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './renderer'),
-    },
-  },
-  server: {
-    port: 3000,
-  },
-  optimizeDeps: {
-    include: ['monaco-editor'],
-  },
-  base: './',
-  build: {
-    minify: 'terser',
-    sourcemap: false,
-    outDir: 'dist/renderer',
-    emptyOutDir: true,
-    chunkSizeWarningLimit: 1000,
-    rollupOptions: {
-      input: {
-        index: resolve(__dirname, 'index.html'),
-        splash: resolve(__dirname, 'splash.html'),
-        tabbar: resolve(__dirname, 'tabbar.html'),
-        main: resolve(__dirname, 'renderer/main.tsx'),
-      },
-      output: {
-        manualChunks(id){
-          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
-            return 'react-vendor'
-          }
-
-
-          if (id.includes('node_modules/electron')) {
-            return 'electron-vendor'
-          }
-          
-           // 1. 体积超过 200KB 的依赖独立拆分
-          if (id.includes('node_modules/monaco*')) {
-            // if (id.includes('echarts')) return 'echarts-vendor';
-            // if (id.includes('antd')) return 'antd-vendor';
-            // if (id.includes('react')) return 'react-vendor';
-            if (id.includes('monaco-editor')) return 'editor-vendor';
-          }
-
-          if (id.includes('node_modules/react-router')) {
-            return 'router-vendor'
-          }
-
-            // 2. 业务代码按路由拆分
-          if (id.includes('src/pages/')) {
-            const match = id.match(/src\/pages\/([^/]+)/);
-            if (match) return `page-${match[1]}`;
-          }
-
-          // 3. 共享工具函数提取到 common
-          if (id.includes('src/utils/') || id.includes('src/hooks/')) {
-            return 'common';
-          }
-
-          if (id.includes('node_modules')) {
-            return 'vendor'
-          }
+    plugins: [
+        react()
+    ],
+    resolve: {
+        alias: {
+            "@": fileURLToPath(new URL('./renderer', import.meta.url))
         }
-      },
     },
-  },
+    build: {
+        
+    }
 })

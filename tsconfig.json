@@ -43,6 +43,9 @@
     "noUncheckedSideEffectImports": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
+    "paths": {
+      "@/*": ["./renderer/*"]
+    }
   },
   "include": ["renderer/**/*", "electron/**/*", "types/**/*"],
   "exclude": ["node_modules", "dist"]
