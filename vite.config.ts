@@ -107,6 +107,8 @@ export default defineConfig({
   },
   base: './',
   build: {
+    minify: 'terser',
+    sourcemap: false,
     outDir: 'dist/renderer',
     emptyOutDir: true,
     chunkSizeWarningLimit: 1000,
@@ -119,12 +121,17 @@ export default defineConfig({
       },
       output: {
         manualChunks(id){
-           if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
             return 'react-vendor'
+          }
+
+
+          if (id.includes('node_modules/electron')) {
+            return 'electron-vendor'
           }
           
            // 1. 体积超过 200KB 的依赖独立拆分
-          if (id.includes('node_modules')) {
+          if (id.includes('node_modules/monaco*')) {
             // if (id.includes('echarts')) return 'echarts-vendor';
             // if (id.includes('antd')) return 'antd-vendor';
             // if (id.includes('react')) return 'react-vendor';

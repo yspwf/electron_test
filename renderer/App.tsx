@@ -1,11 +1,17 @@
-import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import MenuPanel from './components/MenuPanel';
-import ArticleMenu from './components/ArticleMenu';
-import CommunicationPanel from './panels/CommunicationPanel';
-import ArticlePanel from './panels/ArticlePanel';
+import React, { lazy, useState } from 'react';
+// import Sidebar from './components/Sidebar';
+// import MenuPanel from './components/MenuPanel';
+// import ArticleMenu from './components/ArticleMenu';
+// import CommunicationPanel from './panels/CommunicationPanel';
+// import ArticlePanel from './panels/ArticlePanel';
 import { useArticles } from './hooks/useArticles';
 import type { SidebarItem, SidebarKey, MenuMap } from './types';
+
+const Sidebar = lazy(()=>  import('./components/Sidebar'));
+const MenuPanel = lazy(()=> import('./components/MenuPanel'));
+const ArticleMenu = lazy(()=> import('./components/ArticleMenu'));
+const CommunicationPanel = lazy(()=> import('./panels/CommunicationPanel'));
+const ArticlePanel = lazy(()=> import('./panels/ArticlePanel'));
 
 const SIDEBAR_ITEMS: SidebarItem[] = [
   { key: 'frame', label: '框架', icon: 'frame' },
