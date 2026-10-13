@@ -44,9 +44,9 @@
     "moduleDetection": "force",
     "skipLibCheck": true,
     "paths": {
-      "@/*": ["./renderer/*"]
+      "@/*": ["./src/*"]
     }
   },
-  "include": ["renderer/**/*", "electron/**/*", "types/**/*"],
+  "include": ["src/**/*", "renderer/**/*", "electron/**/*", "types/**/*"],
   "exclude": ["node_modules", "dist"]
 }
