@@ -7,13 +7,13 @@ const _filename = fileURLToPath(import.meta.url);
 const _dirname = path.dirname(_filename);
 console.log("_dirname", _dirname);
 
-const createAlias = (dirName) => path.resolve(_dirname, `src/${dirName}`);
+const createAlias = (dirName:string) => path.resolve(_dirname, `src/${dirName}`);
 
 export default defineConfig({
     plugins: [
         react({
             jsxRuntime: 'automatic',  // 使用新的 JSX 转换（React 17+），无需显式导入 React
-            fastRefresh: true,  // 启用快速刷新，修改组件时保持状态
+            jsxImportSource: 'react',  // 启用快速刷新，修改组件时保持状态
         })
     ],
     resolve: {
@@ -36,12 +36,13 @@ export default defineConfig({
     build: {
         minify: 'terser',
         cssMinify: 'esbuild',
+        outDir: 'dist', 
+        emptyOutDir: true,
         terserOptions: {
             compress: {
                 drop_console: true,
                 drop_debugger: true
             }
         }
-        
     }
 })

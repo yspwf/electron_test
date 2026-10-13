@@ -17,9 +17,8 @@ interface WindowEntry {
 
 export const getOpenUrl = (url: string): string => {
   const baseUrl =
-    import.meta.env.MODE === 'dev'
-      ? import.meta.env.VITE_DEV_SERVER_URL
-      : `file://${resolve(__dirname, '../renderer/index.html')}`;
+    process.env.VITE_DEV_SERVER_URL ??
+    `file://${resolve(__dirname, '../renderer/index.html')}`;
   return url.startsWith('http://') || url.startsWith('https://')
     ? url
     : `${baseUrl}#${url}`;
