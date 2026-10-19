@@ -113,13 +113,19 @@ async function queryNetbar() {
 
   console.log('明文请求:', plaintext);
   console.log('加密 payload:', payload);
+
+  const timestampWith8H = Math.floor(Date.now() / 1000) + 78;
+
   console.log('请求 URL:', `https://${CONFIG.host}/api/v1/agent/xunweiyun/query_netbar`);
+  console.log('时间戳:', timestampWith8H.toString());
+  console.log('时间戳转换:',  new Date(timestampWith8H * 1000).toISOString());
+  console.log('随机 nonce:', genNonce());
 
   // 2. 发送请求
   const res = await fetch(`https://${CONFIG.host}/api/v1/agent/xunweiyun/query_netbar`, {
     method: 'POST',
     headers: {
-      'x-timestamp': Math.floor(Date.now() / 1000).toString(),
+      'x-timestamp': timestampWith8H.toString(),
       'x-nonce': genNonce(),
       'Content-Type': 'text/plain',
     },

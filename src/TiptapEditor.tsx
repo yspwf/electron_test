@@ -42,7 +42,7 @@ interface ToolbarButtonProps {
 }
 
 // ---------- 组件内 ref 定义 ----------
-const targetNodePosRef = useRef<number | null>(null);
+// const targetNodePosRef = useRef<number | null>(null);
 
 
 function ToolbarButton({ onClick, isActive, disabled, children, title }: ToolbarButtonProps) {
@@ -195,7 +195,7 @@ export function TiptapEditor({
 }: TiptapEditorProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState({ top: 0, left: 0 });
-  const targetNodePosRef = useRef(0);
+  const targetNodePosRef = useRef<number | null>(null);
   const isExternalUpdate = useRef(false);
 
   const editor = useEditor({
@@ -313,7 +313,7 @@ export function TiptapEditor({
 
       const pos = targetNodePosRef.current;
       if (pos !== null) {
-        editor.chain().focus().setNodeSelection(pos).run();
+        editor?.chain().focus().setNodeSelection(pos).run();
       }
     });
 
