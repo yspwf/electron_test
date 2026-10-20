@@ -46,7 +46,6 @@ const crypto = require('crypto');
 const CONFIG = {
   host: 'test-wb-api.wanjiayizhan.com',                    // ← 替换成真实 host
   key: 'OT3agR1shNS0jivdg8t7kptgqUPltzPD',    // 32 字节密钥
-  storeId: 5007,                              // ← 查询的门店 ID
 };
 
 const IV_LENGTH = 12;
@@ -108,7 +107,10 @@ function genNonce() {
 // ===== 查询门店 =====
 async function queryNetbar() {
   // 1. 构造业务请求并加密
-  const plaintext = { "store_id": 5007 };
+  const plaintext = { "store_id": 5024 };
+
+  // const plaintext = {"store_name":"测试商户","meituan_id":"","address":"天津市市辖区和平区凄凄切切哇哇哇哇哇","terminal_count":10,"phone":"18990414351","contact":"房先生"};
+
   const payload = encrypt(plaintext);
 
   console.log('明文请求:', plaintext);
@@ -131,6 +133,24 @@ async function queryNetbar() {
     },
     body: payload, // base64 字符串，不包 JSON
   });
+
+
+
+  // console.log('请求 URL:', `https://${CONFIG.host}/api/v1/agent/xunweiyun/create_netbar`);
+  // console.log('时间戳:', timestampWith8H.toString());
+  // console.log('时间戳转换:',  new Date(timestampWith8H * 1000).toISOString());
+  // console.log('随机 nonce:', genNonce());
+
+  // // 2. 发送请求
+  // const res = await fetch(`https://${CONFIG.host}/api/v1/agent/xunweiyun/create_netbar`, {
+  //   method: 'POST',
+  //   headers: {
+  //     'x-timestamp': timestampWith8H.toString(),
+  //     'x-nonce': genNonce(),
+  //     'Content-Type': 'text/plain',
+  //   },
+  //   body: payload, // base64 字符串，不包 JSON
+  // });
 
   console.log('HTTP 状态码:', res.status);
 
@@ -164,7 +184,13 @@ async function queryNetbar() {
 queryNetbar()
   .then((data) => {
     console.log('\n✅ 查询成功:');
-    console.log(data);
+   const strJson = JSON.parse(data);
+    console.log('完整响应:', strJson);
+    console.log('响应 data:', strJson.data);
+    // console.log('原始响应:', JSON.parse(JSON.stringify(data, null, 2)));
+    // console.log(Buffer.from(data.data, 'utf-8').toString('base64'));
+    console.log('解密响应:', decrypt(strJson.data));
+    // console.log(decrypt());
     // console.log(JSON.stringify(data, null, 2));
   })
   .catch((err) => {

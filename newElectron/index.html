@@ -1,11 +1,1195 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Modern Editor - Full Interaction</title>
+<style>
+    :root {
+        --bg-app: #090b0f;
+        --bg-sidebar: #0e1015;
+        --bg-editor: #14171d;
+        --bg-hover: #1c2027;
+        --bg-active: #242a34;
+        --bg-code: #0d1117;
+        --border-subtle: #21262d;
+        --border-strong: #30363d;
+        --text-primary: #f0f6fc;
+        --text-secondary: #c9d1d9;
+        --text-tertiary: #8b949e;
+        --text-quaternary: #6e7681;
+        --accent-color: #2f81f7;
+        --danger-color: #f85149;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+        background-color: var(--bg-app);
+        color: var(--text-secondary);
+        height: 100vh;
+        display: flex;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection {
+        background-color: rgba(47, 129, 247, 0.3);
+        color: var(--text-primary);
+    }
+
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+    /* 左侧边栏 */
+    .sidebar {
+        width: 280px;
+        background-color: var(--bg-sidebar);
+        border-right: 1px solid var(--border-subtle);
+        display: flex;
+        flex-direction: column;
+        flex-shrink: 0;
+        position: relative;
+    }
+
+    .sidebar-header {
+        padding: 18px 16px 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    /* 🌟 新增：品牌标题 */
+    .brand {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+        letter-spacing: 0.02em;
+        user-select: none;
+    }
+
+    .actions { display: flex; gap: 4px; }
+    .actions button {
+        background: transparent;
+        border: none;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        padding: 6px;
+        border-radius: 6px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .actions button:hover:not(:disabled) { background-color: var(--bg-hover); color: var(--text-primary); }
+    .actions button:active:not(:disabled) { transform: scale(0.85); }
+    .actions button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+    #delete-btn:hover:not(:disabled) { color: var(--danger-color); }
+
+    /* 搜索框 */
+    .search-container {
+        padding: 0 12px 10px;
+    }
+    .search-input {
+        width: 100%;
+        height: 30px;
+        padding: 0 10px 0 30px;
+        background-color: var(--bg-editor);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.2s ease, background-color 0.2s ease;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238b949e' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: 10px center;
+    }
+    .search-input:focus {
+        border-color: var(--accent-color);
+        background-color: var(--bg-sidebar);
+    }
+    .search-input::placeholder { color: var(--text-quaternary); }
+
+    .note-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 4px 12px 8px;
+        overflow-x: hidden;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 列表项包装 */
+    .note-item-wrapper {
+        position: relative;
+        margin-bottom: 2px;
+        transform-origin: top center;
+        transition: opacity 0.25s ease, transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .note-item-wrapper.fade-hidden {
+        opacity: 0;
+        transform: scale(0.96);
+        pointer-events: none;
+    }
+
+    .note-item {
+        padding: 10px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+        position: relative;
+        background-color: transparent;
+        transition: background-color 0.2s ease;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .note-item:hover { background-color: var(--bg-hover); }
+    .note-item.active { background-color: var(--bg-active); }
+    .note-item:focus-visible {
+        outline: 2px solid var(--accent-color);
+        outline-offset: -2px;
+    }
+
+    .note-item::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%) scaleY(0);
+        width: 3px;
+        height: 16px;
+        background-color: var(--accent-color);
+        border-radius: 0 4px 4px 0;
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .note-item.active::before {
+        opacity: 1;
+        transform: translateY(-50%) scaleY(1);
+    }
+
+    /* 选中高亮引导 */
+    .note-item.highlight {
+        animation: noteHighlight 1.2s ease-out forwards;
+    }
+    @keyframes noteHighlight {
+        0% { background-color: rgba(47, 129, 247, 0.18); }
+        100% { background-color: transparent; }
+    }
+
+    /* 列表内容区 */
+    .note-item-content {
+        flex: 1;
+        min-width: 0;
+    }
+
+    /* 标题 */
+    .note-title {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text-primary);
+        margin-bottom: 3px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        line-height: 1.4;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.3s ease 0.05s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.05s;
+    }
+    .note-item-wrapper:not(.fade-hidden) .note-title {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* 搜索关键词高亮 */
+    .search-highlight {
+        color: var(--accent-color);
+        background-color: rgba(47, 129, 247, 0.15);
+        padding: 0 2px;
+        border-radius: 2px;
+    }
+
+    /* 正文预览 */
+    .note-preview {
+        font-size: 11.5px;
+        color: var(--text-tertiary);
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 3px;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.3s ease 0.08s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.08s;
+    }
+    .note-item-wrapper:not(.fade-hidden) .note-preview {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* 日期 */
+    .note-date {
+        font-size: 11px;
+        color: var(--text-quaternary);
+        font-variant-numeric: tabular-nums;
+        line-height: 1.4;
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.3s ease 0.12s, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) 0.12s;
+    }
+    .note-item-wrapper:not(.fade-hidden) .note-date {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* 重命名输入框 */
+    .note-title-input {
+        width: 100%;
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text-primary);
+        background: var(--bg-editor);
+        border: 1px solid var(--accent-color);
+        border-radius: 4px;
+        padding: 2px 6px;
+        margin-bottom: 3px;
+        outline: none;
+        font-family: inherit;
+    }
+
+    /* Hover 快捷删除按钮 */
+    .note-item-action {
+        opacity: 0;
+        flex-shrink: 0;
+        padding: 2px;
+        border-radius: 4px;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        transition: opacity 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+        margin-top: 2px;
+    }
+    .note-item:hover .note-item-action { opacity: 1; }
+    .note-item-action:hover {
+        color: var(--danger-color);
+        background-color: rgba(248, 81, 73, 0.1);
+    }
+
+    /* 右键菜单 */
+    .context-menu {
+        position: absolute;
+        min-width: 140px;
+        background-color: var(--bg-active);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        padding: 4px;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        z-index: 100;
+        opacity: 0;
+        transform: scale(0.96) translateY(-4px);
+        pointer-events: none;
+        transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .context-menu.show {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+        pointer-events: auto;
+    }
+    .context-menu-item {
+        padding: 7px 12px;
+        font-size: 13px;
+        color: var(--text-secondary);
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background-color 0.15s ease;
+    }
+    .context-menu-item:hover {
+        background-color: var(--bg-hover);
+        color: var(--text-primary);
+    }
+    .context-menu-item.danger { color: var(--danger-color); }
+    .context-menu-item.danger:hover { background-color: rgba(248, 81, 73, 0.1); }
+    .context-menu-divider {
+        height: 1px;
+        background-color: var(--border-subtle);
+        margin: 4px 0;
+    }
+
+    /* 撤销提示 Toast */
+    .toast {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        right: 16px;
+        background: var(--bg-active);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        padding: 10px 14px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 12.5px;
+        color: var(--text-secondary);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        opacity: 0;
+        transform: translateY(10px);
+        pointer-events: none;
+        transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        z-index: 10;
+    }
+    .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: auto;
+    }
+    .toast-undo {
+        color: var(--accent-color);
+        cursor: pointer;
+        font-weight: 500;
+        background: none;
+        border: none;
+        font-size: 12.5px;
+    }
+    .toast-undo:hover { text-decoration: underline; }
+
+    /* 右侧主编辑区 */
+    .main-content {
+        flex: 1;
+        background-color: var(--bg-editor);
+        overflow-y: auto;
+        padding: 60px 40px;
+        cursor: text;
+    }
+    .editor {
+        max-width: 680px;
+        margin: 0 auto;
+        color: var(--text-secondary);
+        line-height: 1.8;
+        font-size: 16px;
+        animation: contentFadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    @keyframes contentFadeIn {
+        from { opacity: 0; transform: translateY(4px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    h1, h2, h3, h4 {
+        color: var(--text-primary);
+        margin-top: 1.5em;
+        margin-bottom: 0.6em;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+    }
+    h1 { 
+        font-size: 2.2em; 
+        margin-top: 0; 
+        padding-bottom: 0.3em; 
+        border-bottom: 1px solid var(--border-subtle);
+        outline: none;
+        cursor: text;
+    }
+    h1:empty:before {
+        content: '输入标题...';
+        color: var(--text-tertiary);
+    }
+    h2 { font-size: 1.6em; margin-top: 2em; }
+    h3 { font-size: 1.25em; }
+    p { margin-bottom: 1.2em; }
+    a { color: var(--accent-color); text-decoration: none; transition: color 0.2s; }
+    a:hover { color: #58a6ff; text-decoration: underline; }
+
+    blockquote {
+        border-left: 4px solid var(--border-strong);
+        padding: 8px 20px;
+        margin: 1.5em 0;
+        color: var(--text-tertiary);
+        background-color: rgba(255,255,255,0.02);
+        border-radius: 0 6px 6px 0;
+    }
+
+    ul, ol { margin-bottom: 1.2em; padding-left: 24px; }
+    li { margin-bottom: 6px; }
+    li::marker { color: var(--accent-color); }
+
+    pre {
+        background-color: var(--bg-code);
+        border: 1px solid var(--border-subtle);
+        border-radius: 8px;
+        padding: 16px;
+        overflow-x: auto;
+        margin: 1.5em 0;
+        font-family: "SF Mono", Consolas, monospace;
+        font-size: 14px;
+    }
+
+    /* 空状态引导 */
+    .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        gap: 16px;
+        color: var(--text-tertiary);
+    }
+    .empty-state h1 { border: none; font-size: 1.8em; margin-bottom: 0; }
+    .empty-state-btn {
+        background: var(--accent-color);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: background 0.2s ease;
+    }
+    .empty-state-btn:hover { background: #1a6fe0; }
+</style>
 </head>
+
 <body>
-    123123123
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <!-- 🌟 替换为品牌标题 -->
+        <div class="brand">Notes</div>
+        <div class="actions">
+            <button id="add-btn" title="新建文档 (Ctrl+N)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M12 5v14M5 12h14"/>
+                </svg>
+            </button>
+            <button id="delete-btn" title="删除当前文档 (Delete)">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- 搜索框 -->
+    <div class="search-container">
+        <input type="text" class="search-input" id="search-input" placeholder="搜索笔记 (Ctrl+F)" />
+    </div>
+
+    <div class="note-list" id="note-list"></div>
+
+    <!-- 撤销提示条 -->
+    <div class="toast" id="toast">
+        <span>已删除 1 篇笔记</span>
+        <button class="toast-undo" id="undo-btn">撤销</button>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div class="context-menu" id="context-menu">
+        <div class="context-menu-item" data-action="rename">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
+            </svg>
+            重命名
+        </div>
+        <div class="context-menu-item" data-action="new">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M12 5v14M5 12h14"/>
+            </svg>
+            新建笔记
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" data-action="delete">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/>
+            </svg>
+            删除
+        </div>
+    </div>
+</aside>
+
+<main class="main-content" id="main-content"></main>
+
+<script>
+    let notes = [
+        {
+            id: Date.now(),
+            title: "统一对称的渐变",
+            date: "2024/10/25 19:00",
+            content: `
+                <h1 contenteditable="true">统一对称的渐变</h1>
+                <p>现在，无论是点击添加还是删除，左侧列表的背景和文字都遵循<strong>完全一致的纯透明度与微缩放过渡</strong>。</p>
+                <blockquote>
+                    没有高度从 0 展开的挤压感，只有元素像水面上的倒影一样，平滑地浮现和消隐。下方的列表会通过 FLIP 动画，极其柔和地让出或填补空间。
+                </blockquote>
+                <p>💡 交互提示：双击标题重命名，右键更多操作，支持 Ctrl+F 搜索、上下键切换。</p>
+            `
+        },
+        {
+            id: Date.now() + 1,
+            title: "关于人类编辑习惯",
+            date: "2024/10/24 10:05",
+            content: `<h1 contenteditable="true">关于人类编辑习惯</h1><h2>符合直觉的交互</h2><p>平滑滚动、智能选中、键盘导航，符合桌面端用户的使用习惯。</p>`
+        },
+        {
+            id: Date.now() + 2,
+            title: "技术架构说明",
+            date: "2024/10/22 16:30",
+            content: `<h1 contenteditable="true">技术架构说明</h1><h2>技术细节</h2><p>纯前端实现，利用 Web API 打造丝滑质感，基于 FLIP 思想实现高性能列表动画。</p>`
+        },
+        {
+            id: Date.now() + 3,
+            title: "交互设计原则",
+            date: "2024/10/20 09:12",
+            content: `<h1 contenteditable="true">交互设计原则</h1><p>好的交互应该是无感的，用户只需要关注内容本身，而不是如何操作。</p>`
+        }
+    ];
+
+    let activeNoteId = notes.length > 0 ? notes[0].id : null;
+    let searchKeyword = '';
+    let deletedBackup = null;
+    let toastTimer = null;
+    let contextMenuTargetId = null;
+    let isUpdatingTitle = false;
+
+    const noteListEl = document.getElementById('note-list');
+    const mainContentEl = document.getElementById('main-content');
+    const addBtn = document.getElementById('add-btn');
+    const deleteBtn = document.getElementById('delete-btn');
+    const searchInput = document.getElementById('search-input');
+    const toastEl = document.getElementById('toast');
+    const undoBtn = document.getElementById('undo-btn');
+    const contextMenuEl = document.getElementById('context-menu');
+    const sidebarEl = document.getElementById('sidebar');
+
+    // ========== 工具函数 ==========
+    function getCurrentTime() {
+        const d = new Date();
+        return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function stripHtml(html) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || '';
+    }
+
+    function formatRelativeTime(dateStr) {
+        const date = new Date(dateStr.replace(/\//g, '-'));
+        const now = new Date();
+        const diffTime = now - date;
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+            const hours = date.getHours().toString().padStart(2, '0');
+            const mins = date.getMinutes().toString().padStart(2, '0');
+            return `今天 ${hours}:${mins}`;
+        } else if (diffDays === 1) {
+            const hours = date.getHours().toString().padStart(2, '0');
+            const mins = date.getMinutes().toString().padStart(2, '0');
+            return `昨天 ${hours}:${mins}`;
+        } else if (diffDays < 7) {
+            return `${diffDays} 天前`;
+        } else {
+            return dateStr.split(' ')[0];
+        }
+    }
+
+    function highlightKeyword(text, keyword) {
+        if (!keyword) return text;
+        const reg = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+        return text.replace(reg, '<span class="search-highlight">$1</span>');
+    }
+
+    function getFilteredNotes() {
+        if (!searchKeyword.trim()) return notes;
+        const kw = searchKeyword.toLowerCase().trim();
+        return notes.filter(note =>
+            note.title.toLowerCase().includes(kw) ||
+            stripHtml(note.content).toLowerCase().includes(kw)
+        );
+    }
+
+    // ========== 状态更新 ==========
+    function updateButtonStates() {
+        deleteBtn.disabled = notes.length === 0;
+    }
+
+    function showToast() {
+        clearTimeout(toastTimer);
+        toastEl.classList.add('show');
+        toastTimer = setTimeout(() => {
+            hideToast();
+            deletedBackup = null;
+        }, 3000);
+    }
+
+    function hideToast() {
+        toastEl.classList.remove('show');
+    }
+
+    function scrollActiveIntoView() {
+        const activeWrapper = document.querySelector(`.note-item-wrapper[data-id="${activeNoteId}"]`);
+        if (activeWrapper) {
+            activeWrapper.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function highlightActiveNote() {
+        const activeItem = document.querySelector(`.note-item-wrapper[data-id="${activeNoteId}"] .note-item`);
+        if (activeItem) {
+            activeItem.classList.remove('highlight');
+            void activeItem.offsetHeight;
+            activeItem.classList.add('highlight');
+            setTimeout(() => activeItem.classList.remove('highlight'), 1200);
+        }
+    }
+
+    // ========== 渲染函数 ==========
+    function renderContent() {
+        const activeNote = notes.find(n => n.id === activeNoteId);
+        if (activeNote) {
+            mainContentEl.innerHTML = `<div class="editor">${activeNote.content}</div>`;
+            bindTitleEditor();
+        } else {
+            mainContentEl.innerHTML = `
+                <div class="editor empty-state">
+                    <h1>暂无笔记</h1>
+                    <p>开始创建你的第一篇文档吧</p>
+                    <button class="empty-state-btn" id="empty-add-btn">+ 新建文档</button>
+                </div>
+            `;
+            const btn = document.getElementById('empty-add-btn');
+            if (btn) btn.addEventListener('click', handleAddNote);
+        }
+    }
+
+    function bindTitleEditor() {
+        const h1 = mainContentEl.querySelector('h1[contenteditable]');
+        if (!h1) return;
+
+        h1.addEventListener('input', () => {
+            if (isUpdatingTitle) return;
+            const newTitle = h1.textContent.trim() || '未命名文档';
+            const note = notes.find(n => n.id === activeNoteId);
+            if (!note) return;
+
+            note.title = newTitle;
+            note.content = note.content.replace(/<h1[^>]*>.*?<\/h1>/, `<h1 contenteditable="true">${newTitle}</h1>`);
+            note.date = getCurrentTime();
+
+            updateSidebarTitle(activeNoteId, newTitle);
+        });
+
+        h1.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                h1.blur();
+            }
+        });
+    }
+
+    function updateSidebarTitle(noteId, newTitle) {
+        const wrapper = document.querySelector(`.note-item-wrapper[data-id="${noteId}"]`);
+        if (!wrapper) return;
+
+        const titleEl = wrapper.querySelector('.note-title');
+        const previewEl = wrapper.querySelector('.note-preview');
+        const dateEl = wrapper.querySelector('.note-date');
+
+        if (titleEl) {
+            titleEl.innerHTML = highlightKeyword(newTitle, searchKeyword);
+        }
+        if (previewEl) {
+            const note = notes.find(n => n.id === noteId);
+            if (note) {
+                const previewText = stripHtml(note.content).replace(/\s+/g, ' ').trim().slice(0, 35);
+                previewEl.innerHTML = highlightKeyword(previewText, searchKeyword);
+            }
+        }
+        if (dateEl) {
+            const note = notes.find(n => n.id === noteId);
+            if (note) {
+                dateEl.textContent = formatRelativeTime(note.date);
+                dateEl.title = note.date;
+            }
+        }
+    }
+
+    function createNoteElement(note) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'note-item-wrapper';
+        wrapper.dataset.id = note.id;
+
+        const itemEl = document.createElement('div');
+        itemEl.className = 'note-item';
+        itemEl.tabIndex = 0;
+        if (note.id === activeNoteId) itemEl.classList.add('active');
+
+        const previewText = stripHtml(note.content).replace(/\s+/g, ' ').trim().slice(0, 35);
+        const relativeDate = formatRelativeTime(note.date);
+
+        itemEl.innerHTML = `
+            <div class="note-item-content">
+                <div class="note-title">${highlightKeyword(note.title, searchKeyword)}</div>
+                <div class="note-preview">${highlightKeyword(previewText, searchKeyword)}</div>
+                <div class="note-date" title="${note.date}">${relativeDate}</div>
+            </div>
+            <div class="note-item-action" title="删除">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                    <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/>
+                </svg>
+            </div>
+        `;
+
+        itemEl.addEventListener('click', () => handleSwitchNote(note.id));
+        itemEl.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            startRename(note.id);
+        });
+        itemEl.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showContextMenu(e, note.id);
+        });
+
+        const delBtn = itemEl.querySelector('.note-item-action');
+        delBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            handleDeleteNoteById(note.id);
+        });
+
+        wrapper.appendChild(itemEl);
+        return wrapper;
+    }
+
+    function renderListWithFlip() {
+        const filtered = getFilteredNotes();
+        
+        const oldWrappers = Array.from(document.querySelectorAll('.note-item-wrapper'));
+        const oldTops = new Map();
+        oldWrappers.forEach(w => oldTops.set(w.dataset.id, w.getBoundingClientRect().top));
+
+        oldWrappers.forEach(w => w.classList.add('fade-hidden'));
+
+        noteListEl.innerHTML = '';
+        filtered.forEach(note => {
+            noteListEl.appendChild(createNoteElement(note));
+        });
+
+        const newWrappers = Array.from(document.querySelectorAll('.note-item-wrapper'));
+        const newTops = new Map();
+        newWrappers.forEach(w => newTops.set(w.dataset.id, w.getBoundingClientRect().top));
+
+        newWrappers.forEach(w => {
+            const id = w.dataset.id;
+            if (oldTops.has(id)) {
+                const oldTop = oldTops.get(id);
+                const newTop = newTops.get(id);
+                const deltaY = oldTop - newTop;
+
+                if (deltaY !== 0) {
+                    w.style.transition = 'none';
+                    w.style.transform = `translateY(${deltaY}px)`;
+                    w.classList.remove('fade-hidden');
+                }
+            }
+        });
+
+        void noteListEl.offsetHeight;
+
+        requestAnimationFrame(() => {
+            newWrappers.forEach(w => {
+                const id = w.dataset.id;
+                if (oldTops.has(id)) {
+                    const oldTop = oldTops.get(id);
+                    const newTop = newTops.get(id);
+                    const deltaY = oldTop - newTop;
+
+                    if (deltaY !== 0) {
+                        w.style.transition = 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)';
+                        w.style.transform = 'translateY(0)';
+                    }
+                } else {
+                    w.classList.remove('fade-hidden');
+                }
+            });
+
+            setTimeout(() => {
+                newWrappers.forEach(w => {
+                    w.style.transition = '';
+                    w.style.transform = '';
+                });
+            }, 400);
+        });
+    }
+
+    function initList() {
+        noteListEl.innerHTML = '';
+        getFilteredNotes().forEach(note => {
+            noteListEl.appendChild(createNoteElement(note));
+        });
+        document.querySelectorAll('.note-item-wrapper').forEach(w => w.classList.remove('fade-hidden'));
+        renderContent();
+        updateButtonStates();
+    }
+
+    // ========== 交互逻辑 ==========
+    function handleSwitchNote(id) {
+        if (activeNoteId === id) return;
+        activeNoteId = id;
+        document.querySelectorAll('.note-item').forEach(item => item.classList.remove('active'));
+        const target = document.querySelector(`.note-item-wrapper[data-id="${id}"] .note-item`);
+        if (target) target.classList.add('active');
+        renderContent();
+        scrollActiveIntoView();
+    }
+
+    function startRename(noteId) {
+        const wrapper = document.querySelector(`.note-item-wrapper[data-id="${noteId}"]`);
+        if (!wrapper) return;
+        
+        const titleEl = wrapper.querySelector('.note-title');
+        const currentTitle = notes.find(n => n.id === noteId)?.title || '';
+
+        const input = document.createElement('input');
+        input.className = 'note-title-input';
+        input.value = currentTitle;
+        titleEl.replaceWith(input);
+        input.focus();
+        input.select();
+
+        const saveRename = () => {
+            const newTitle = input.value.trim() || '未命名文档';
+            const note = notes.find(n => n.id === noteId);
+            if (note) {
+                isUpdatingTitle = true;
+                note.title = newTitle;
+                note.content = note.content.replace(/<h1[^>]*>.*?<\/h1>/, `<h1 contenteditable="true">${newTitle}</h1>`);
+                note.date = getCurrentTime();
+                isUpdatingTitle = false;
+            }
+            renderContent();
+            renderListWithFlip();
+        };
+
+        input.addEventListener('blur', saveRename);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+            if (e.key === 'Escape') { e.preventDefault(); input.value = currentTitle; input.blur(); }
+            e.stopPropagation();
+        });
+    }
+
+    // 新建笔记
+    function handleAddNote() {
+        searchInput.value = '';
+        searchKeyword = '';
+
+        const newId = Date.now();
+        const newNote = {
+            id: newId,
+            title: `未命名文档 ${notes.length + 1}`,
+            date: getCurrentTime(),
+            content: `<h1 contenteditable="true">未命名文档</h1><p>开始创作你的想法...</p>`
+        };
+
+        notes.unshift(newNote);
+        activeNoteId = newId;
+
+        const wrappers = Array.from(document.querySelectorAll('.note-item-wrapper'));
+        const oldTops = new Map();
+        wrappers.forEach(w => oldTops.set(w.dataset.id, w.getBoundingClientRect().top));
+
+        document.querySelectorAll('.note-item').forEach(item => item.classList.remove('active'));
+        const newWrapper = createNoteElement(newNote);
+
+        newWrapper.classList.add('fade-hidden');
+        noteListEl.prepend(newWrapper);
+        void newWrapper.offsetHeight;
+
+        wrappers.forEach(w => {
+            const oldTop = oldTops.get(w.dataset.id);
+            const newTop = w.getBoundingClientRect().top;
+            const deltaY = oldTop - newTop;
+
+            if (deltaY !== 0) {
+                w.style.transition = 'none';
+                w.style.transform = `translateY(${deltaY}px)`;
+                void w.offsetHeight;
+
+                requestAnimationFrame(() => {
+                    w.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                    w.style.transform = 'translateY(0)';
+
+                    setTimeout(() => {
+                        w.style.transition = '';
+                        w.style.transform = '';
+                    }, 400);
+                });
+            }
+        });
+
+        setTimeout(() => {
+            newWrapper.classList.remove('fade-hidden');
+        }, 120);
+
+        renderContent();
+        updateButtonStates();
+        noteListEl.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // 自动聚焦右侧标题并全选
+        setTimeout(() => {
+            const h1 = mainContentEl.querySelector('h1[contenteditable]');
+            if (h1) {
+                h1.focus();
+                const range = document.createRange();
+                range.selectNodeContents(h1);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+            }
+        }, 450);
+    }
+
+    addBtn.addEventListener('click', handleAddNote);
+
+    // 删除指定ID的笔记
+    function handleDeleteNoteById(noteId) {
+        const currentIndex = notes.findIndex(n => n.id === noteId);
+        const activeWrapper = document.querySelector(`.note-item-wrapper[data-id="${noteId}"]`);
+        if (!activeWrapper) return;
+
+        const wrappers = document.querySelectorAll('.note-item-wrapper');
+        const oldTops = new Map();
+        wrappers.forEach(w => oldTops.set(w.dataset.id, w.getBoundingClientRect().top));
+
+        activeWrapper.classList.add('fade-hidden');
+        activeWrapper.style.pointerEvents = 'none';
+
+        setTimeout(() => {
+            deletedBackup = {
+                note: { ...notes[currentIndex] },
+                index: currentIndex
+            };
+
+            notes = notes.filter(n => n.id !== noteId);
+            activeWrapper.remove();
+
+            if (noteId === activeNoteId) {
+                if (notes.length > 0) {
+                    let nextIndex = currentIndex >= notes.length ? notes.length - 1 : currentIndex;
+                    activeNoteId = notes[nextIndex].id;
+
+                    document.querySelectorAll('.note-item').forEach(item => item.classList.remove('active'));
+                    document.querySelector(`.note-item-wrapper[data-id="${activeNoteId}"] .note-item`)?.classList.add('active');
+                    highlightActiveNote();
+                } else {
+                    activeNoteId = null;
+                }
+            }
+
+            wrappers.forEach(w => {
+                if (w === activeWrapper) return;
+
+                const oldTop = oldTops.get(w.dataset.id);
+                const newTop = w.getBoundingClientRect().top;
+                const deltaY = oldTop - newTop;
+
+                if (deltaY !== 0) {
+                    w.style.transition = 'none';
+                    w.style.transform = `translateY(${deltaY}px)`;
+                    void w.offsetHeight;
+
+                    requestAnimationFrame(() => {
+                        w.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                        w.style.transform = 'translateY(0)';
+
+                        setTimeout(() => {
+                            w.style.transition = '';
+                            w.style.transform = '';
+                        }, 400);
+                    });
+                }
+            });
+
+            renderContent();
+            updateButtonStates();
+            showToast();
+        }, 250);
+    }
+
+    function handleDeleteNote() {
+        if (!activeNoteId || notes.length === 0) return;
+        handleDeleteNoteById(activeNoteId);
+    }
+
+    deleteBtn.addEventListener('click', handleDeleteNote);
+
+    // 撤销删除
+    undoBtn.addEventListener('click', () => {
+        if (!deletedBackup) return;
+        clearTimeout(toastTimer);
+        hideToast();
+
+        const { note, index } = deletedBackup;
+        notes.splice(index, 0, note);
+        activeNoteId = note.id;
+
+        const wrappers = Array.from(document.querySelectorAll('.note-item-wrapper'));
+        const oldTops = new Map();
+        wrappers.forEach(w => oldTops.set(w.dataset.id, w.getBoundingClientRect().top));
+
+        const newWrapper = createNoteElement(note);
+        newWrapper.classList.add('fade-hidden');
+
+        const referenceNode = noteListEl.children[index] || null;
+        noteListEl.insertBefore(newWrapper, referenceNode);
+        void newWrapper.offsetHeight;
+
+        wrappers.forEach(w => {
+            const oldTop = oldTops.get(w.dataset.id);
+            const newTop = w.getBoundingClientRect().top;
+            const deltaY = oldTop - newTop;
+
+            if (deltaY !== 0) {
+                w.style.transition = 'none';
+                w.style.transform = `translateY(${deltaY}px)`;
+                void w.offsetHeight;
+
+                requestAnimationFrame(() => {
+                    w.style.transition = 'transform 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+                    w.style.transform = 'translateY(0)';
+
+                    setTimeout(() => {
+                        w.style.transition = '';
+                        w.style.transform = '';
+                    }, 400);
+                });
+            }
+        });
+
+        setTimeout(() => {
+            newWrapper.classList.remove('fade-hidden');
+        }, 120);
+
+        document.querySelectorAll('.note-item').forEach(item => item.classList.remove('active'));
+        newWrapper.querySelector('.note-item').classList.add('active');
+
+        renderContent();
+        updateButtonStates();
+        scrollActiveIntoView();
+        deletedBackup = null;
+    });
+
+    // ========== 右键菜单 ==========
+    function showContextMenu(e, noteId) {
+        contextMenuTargetId = noteId;
+        const sidebarRect = sidebarEl.getBoundingClientRect();
+        let x = e.clientX - sidebarRect.left;
+        let y = e.clientY - sidebarRect.top;
+
+        const menuWidth = 160;
+        const menuHeight = 130;
+        if (x + menuWidth > sidebarRect.width) x = sidebarRect.width - menuWidth - 8;
+        if (y + menuHeight > sidebarRect.height) y = sidebarRect.height - menuHeight - 8;
+
+        contextMenuEl.style.left = x + 'px';
+        contextMenuEl.style.top = y + 'px';
+        contextMenuEl.classList.add('show');
+    }
+
+    function hideContextMenu() {
+        contextMenuEl.classList.remove('show');
+        contextMenuTargetId = null;
+    }
+
+    contextMenuEl.addEventListener('click', (e) => {
+        const item = e.target.closest('.context-menu-item');
+        if (!item || !contextMenuTargetId) return;
+
+        const action = item.dataset.action;
+        if (action === 'rename') startRename(contextMenuTargetId);
+        if (action === 'delete') handleDeleteNoteById(contextMenuTargetId);
+        if (action === 'new') handleAddNote();
+
+        hideContextMenu();
+    });
+
+    document.addEventListener('click', hideContextMenu);
+    document.addEventListener('scroll', hideContextMenu, true);
+
+    // ========== 搜索功能 ==========
+    let searchDebounce = null;
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchDebounce);
+        searchDebounce = setTimeout(() => {
+            searchKeyword = e.target.value;
+            renderListWithFlip();
+        }, 100);
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            searchInput.value = '';
+            searchKeyword = '';
+            renderListWithFlip();
+            searchInput.blur();
+        }
+    });
+
+    // ========== 键盘快捷键 ==========
+    document.addEventListener('keydown', (e) => {
+        const tag = e.target.tagName.toLowerCase();
+        if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) return;
+
+        if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+            e.preventDefault();
+            handleAddNote();
+            return;
+        }
+
+        if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+            e.preventDefault();
+            searchInput.focus();
+            searchInput.select();
+            return;
+        }
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            handleDeleteNote();
+            return;
+        }
+
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            const filtered = getFilteredNotes();
+            if (filtered.length === 0) return;
+
+            const currentIndex = filtered.findIndex(n => n.id === activeNoteId);
+            let nextIndex = currentIndex;
+
+            if (e.key === 'ArrowUp') {
+                nextIndex = Math.max(0, currentIndex - 1);
+            } else {
+                nextIndex = Math.min(filtered.length - 1, currentIndex + 1);
+            }
+
+            if (nextIndex !== currentIndex && nextIndex >= 0) {
+                handleSwitchNote(filtered[nextIndex].id);
+            }
+        }
+    });
+
+    // 初始化
+    initList();
+</script>
 </body>
-</html>l
+</html>
