@@ -47,6 +47,7 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src/**/*", "renderer/**/*", "electron/**/*", "types/**/*"],
+  // "include": ["src/**/*", "renderer/**/*", "electron/**/*", "types/**/*"],
+  "include": ["src/**/*"],
   "exclude": ["node_modules", "dist"]
 }

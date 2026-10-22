@@ -12,8 +12,8 @@ app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
 const  createWindow = async () => {
   const { BrowserWindow } = await import('electron');
   const mainWindow = new BrowserWindow({ 
-    width: 800,
-    height: 600,
+    width: 1400,
+    height: 1000,
     minHeight: 400,
     minWidth: 600,
     title: 'Electron + React + TypeScript',
@@ -38,7 +38,7 @@ const  createWindow = async () => {
   });
 
  
-  mainWindow.loadFile(path.join(__dirname, './index.html'));
+  mainWindow.loadFile(path.join(__dirname, './../../dist/index.html'));
  
 
   const isDev = process.env.NODE_ENV === 'development';

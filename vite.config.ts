@@ -51,7 +51,9 @@ export default defineConfig({
                 build: {   
                     sourcemap: true,
                     outDir: 'dist-electron/preload',
-                    rollupOptions: {}
+                    rollupOptions: {
+                        external: ['electron']
+                    }
                 }
             }
         }]),
@@ -76,7 +78,7 @@ export default defineConfig({
         }
     },
     build: {
-        minify: 'terser',
+        minify: 'esbuild',
         cssMinify: 'esbuild',
         outDir: 'dist', 
         emptyOutDir: true,

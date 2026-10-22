@@ -5,6 +5,8 @@ const Layout = () => {
     <Link to='/about'>about</Link>
     <Link to='/'>home</Link>
     <Link to='/tiptap'>tiptap</Link>
+    <Link to='/editer'>editer</Link>
+
         <main>
             <Outlet />
         </main>
