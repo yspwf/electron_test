@@ -24,49 +24,75 @@ interface ContextMenuState {
 }
 
 // ========== Markdown 工具函数 ==========
-// 从 Markdown 中提取第一个一级标题
+const markdown = new MarkdownIt({
+  html: false,
+  linkify: true,
+  breaks: true,
+  typographer: true,
+});
+
+const parseMarkdown = (source: string) => {
+  const env = {};
+  const tokens = markdown.parse(source, env);
+  const titleIndex = tokens.findIndex(
+    (token) => token.type === 'heading_open' && token.tag === 'h1' && token.level === 0
+  );
+  return { tokens, titleIndex, env };
+};
+
 const getTitleFromMarkdown = (md: string): string => {
-  const match = md.match(/^#\s+(.+)$/m);
-  return match?.[1]?.trim() || '未命名文档';
+  const { tokens, titleIndex } = parseMarkdown(md);
+  return titleIndex < 0
+    ? '未命名文档'
+    : tokens[titleIndex + 1]?.content.replace(/\s+/g, ' ').trim() || '未命名文档';
 };
 
-// 更新 Markdown 中的第一个一级标题
 const updateMarkdownTitle = (md: string, newTitle: string): string => {
-  if (/^#\s+.+$/m.test(md)) {
-    return md.replace(/^#\s+.+$/m, `# ${newTitle}`);
-  }
-  // 如果没有一级标题，在开头插入
-  return `# ${newTitle}\n\n${md}`;
+  const { tokens, titleIndex } = parseMarkdown(md);
+  const titleLines = tokens[titleIndex]?.map;
+  if (!titleLines) return `# ${newTitle}\n\n${md}`;
+
+  const lines = md.split(/\r?\n/);
+  lines.splice(titleLines[0], titleLines[1] - titleLines[0], `# ${newTitle}`);
+  return lines.join('\n');
 };
 
-// 剥离 Markdown 语法获取纯文本（用于预览、搜索）
+const renderMarkdownBody = (source: string): string => {
+  const { tokens, titleIndex, env } = parseMarkdown(source);
+  if (titleIndex >= 0) tokens.splice(titleIndex, 3);
+  return markdown.renderer.render(tokens, markdown.options, env);
+};
+
 const stripMarkdown = (md: string): string => {
   return md
-    .replace(/^#{1,6}\s+/gm, '')       // 去掉标题 #
-    .replace(/\*\*(.+?)\*\*/g, '$1')   // 去掉加粗
-    .replace(/\*(.+?)\*/g, '$1')       // 去掉斜体
-    .replace(/\[(.+?)\]\(.+?\)/g, '$1') // 去掉链接
-    .replace(/^>\s+/gm, '')            // 去掉引用 >
-    .replace(/`{1,3}.*?`{1,3}/gs, '')  // 去掉代码
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+    .replace(/^>\s+/gm, '')
+    .replace(/^ {0,3}(?:`{3,}|~{3,}).*$/gm, '')
+    .replace(/`+([^`]+)`+/g, '$1')
     .replace(/\n+/g, ' ')
     .trim();
 };
 
+const highlightKeyword = (text: string, keyword: string): React.ReactNode => {
+  if (!keyword) return text;
+  const reg = new RegExp(
+    `(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
+    'gi'
+  );
+  return text.split(reg).map((part, index) =>
+    index % 2 === 1 ? (
+      <span className="search-highlight" key={index}>{part}</span>
+    ) : part
+  );
+};
+
 // ========== 组件 ==========
 const Editor: React.FC = () => {
-  // 初始化 markdown-it 实例
-  const md = useMemo(() => {
-    return new MarkdownIt({
-      html: false,        // 禁止原生 HTML（更安全）
-      linkify: true,      // 自动识别链接
-      breaks: true,       // 换行转为 <br>
-      typographer: true,  // 优化标点符号
-    });
-  }, []);
-
   // ========== 状态 ==========
   const [notes, setNotes] = useState<Note[]>(() => {
-    // 初始数据使用 Markdown 源码
     const initialNotes: Note[] = [
       {
         id: Date.now(),
@@ -139,9 +165,18 @@ const Editor: React.FC = () => {
   const sidebarRef = useRef<HTMLDivElement>(null);
   const editTitleRef = useRef<HTMLHeadingElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
   const prevPositions = useRef<Map<string, number>>(new Map());
   const toastTimer = useRef<number | null>(null);
-  const isUpdatingTitle = useRef<boolean>(false);
+  const renameCancelled = useRef(false);
+  const notesRef = useRef(notes);
+  const deleteTimers = useRef<Map<number, number>>(new Map());
+  const newNoteFocusTimer = useRef<number | null>(null);
+  const nextNoteId = useRef(Math.max(0, ...notes.map((note) => note.id)));
+
+  useLayoutEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
 
   // ========== 工具函数 ==========
   const getCurrentTime = useCallback((): string => {
@@ -172,18 +207,6 @@ const Editor: React.FC = () => {
     }
   }, []);
 
-  const highlightKeyword = useCallback(
-    (text: string, keyword: string): string => {
-      if (!keyword) return text;
-      const reg = new RegExp(
-        `(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`,
-        'gi'
-      );
-      return text.replace(reg, '<span class="search-highlight">$1</span>');
-    },
-    []
-  );
-
   // 过滤后的笔记列表
   const filteredNotes = useMemo((): Note[] => {
     if (!searchKeyword.trim()) return notes;
@@ -200,13 +223,27 @@ const Editor: React.FC = () => {
     return notes.find((n) => n.id === activeNoteId) ?? null;
   }, [notes, activeNoteId]);
 
+  // 标题 DOM 由浏览器维护，输入时不重写内容以保留光标和中文输入状态。
+  useLayoutEffect(() => {
+    const heading = editTitleRef.current;
+    if (!heading || document.activeElement === heading) return;
+    if (heading.textContent !== activeNote?.title) {
+      heading.textContent = activeNote?.title ?? '';
+    }
+  }, [activeNote?.id, activeNote?.title]);
+
+  useEffect(() => {
+    if (editingId === null) return;
+    renameCancelled.current = false;
+    renameInputRef.current?.focus();
+    renameInputRef.current?.select();
+  }, [editingId]);
+
   // 当前笔记渲染后的 HTML 正文（去掉一级标题）
   const renderedBodyHtml = useMemo((): string => {
     if (!activeNote) return '';
-    // 去掉第一个一级标题行，只渲染正文
-    const bodyContent = activeNote.content.replace(/^#\s+.+\n+/m, '');
-    return md.render(bodyContent);
-  }, [activeNote, md]);
+    return renderMarkdownBody(activeNote.content);
+  }, [activeNote?.content]);
 
   // ========== FLIP 动画 ==========
   const recordPositions = useCallback((): void => {
@@ -291,21 +328,14 @@ const Editor: React.FC = () => {
 
   const startRename = useCallback((id: number): void => {
     setEditingId(id);
-    setTimeout(() => {
-      if (renameInputRef.current) {
-        renameInputRef.current.focus();
-        renameInputRef.current.select();
-      }
-    }, 0);
   }, []);
 
   const saveRename = useCallback(
     (id: number, value: string): void => {
-      const newTitle = value.trim() || '未命名文档';
+      const newTitle = value.replace(/\s+/g, ' ').trim() || '未命名文档';
       setNotes((prev) =>
         prev.map((note) => {
           if (note.id === id) {
-            isUpdatingTitle.current = true;
             const newContent = updateMarkdownTitle(note.content, newTitle);
             return { ...note, title: newTitle, content: newContent, date: getCurrentTime() };
           }
@@ -313,9 +343,6 @@ const Editor: React.FC = () => {
         })
       );
       setEditingId(null);
-      setTimeout(() => {
-        isUpdatingTitle.current = false;
-      }, 0);
     },
     [getCurrentTime]
   );
@@ -323,7 +350,8 @@ const Editor: React.FC = () => {
   // 新建笔记
   const handleAddNote = useCallback((): void => {
     setSearchKeyword('');
-    const newId = Date.now();
+    const newId = Math.max(Date.now(), nextNoteId.current + 1);
+    nextNoteId.current = newId;
     const title = `未命名文档 ${notes.length + 1}`;
     const newNote: Note = {
       id: newId,
@@ -334,16 +362,14 @@ const Editor: React.FC = () => {
 
     setNotes((prev) => [newNote, ...prev]);
     setActiveNoteId(newId);
+    setEditingId(null);
 
-    setTimeout(() => {
-      if (editTitleRef.current) {
-        editTitleRef.current.focus();
-        const range = document.createRange();
-        range.selectNodeContents(editTitleRef.current);
-        const sel = window.getSelection();
-        sel?.removeAllRanges();
-        sel?.addRange(range);
-      }
+    // 新建后自动聚焦正文编辑区
+    if (newNoteFocusTimer.current !== null) clearTimeout(newNoteFocusTimer.current);
+    newNoteFocusTimer.current = window.setTimeout(() => {
+      if (contentTextareaRef.current?.dataset.noteId !== String(newId)) return;
+      contentTextareaRef.current?.focus();
+      contentTextareaRef.current?.setSelectionRange(0, 0);
     }, 450);
 
     listRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -352,50 +378,35 @@ const Editor: React.FC = () => {
   // 删除指定笔记
   const handleDeleteNoteById = useCallback(
     (noteId: number): void => {
-      const currentIndex = notes.findIndex((n) => n.id === noteId);
-      const currentNote = notes[currentIndex];
-      if (!currentNote) return;
+      if (deleteTimers.current.has(noteId)) return;
+      if (!notesRef.current.some((note) => note.id === noteId)) return;
 
       setDeletingIds((prev) => new Set([...prev, noteId]));
 
-      setTimeout(() => {
-        setDeletedBackup({
-          note: { ...currentNote },
-          index: currentIndex,
-        });
-
-        setNotes((prev) => prev.filter((n) => n.id !== noteId));
+      const timer = window.setTimeout(() => {
+        deleteTimers.current.delete(noteId);
         setDeletingIds((prev) => {
           const next = new Set(prev);
           next.delete(noteId);
           return next;
         });
 
-        if (noteId === activeNoteId) {
-          const remaining = notes.filter((n) => n.id !== noteId);
-          const nextIndex =
-            currentIndex >= remaining.length
-              ? remaining.length - 1
-              : currentIndex;
-          const nextNote = remaining[nextIndex];
-          if (nextNote) {
-            setActiveNoteId(nextNote.id);
+        const currentNotes = notesRef.current;
+        const currentIndex = currentNotes.findIndex((note) => note.id === noteId);
+        const currentNote = currentNotes[currentIndex];
+        if (!currentNote) return;
 
-            setTimeout(() => {
-              const item = document.querySelector(
-                `.note-item-wrapper[data-id="${nextNote.id}"] .note-item`
-              ) as HTMLElement | null;
-              if (item) {
-                item.classList.remove('highlight');
-                void item.offsetHeight;
-                item.classList.add('highlight');
-                setTimeout(() => item.classList.remove('highlight'), 1200);
-              }
-            }, 0);
-          } else {
-            setActiveNoteId(null);
-          }
-        }
+        setDeletedBackup({ note: { ...currentNote }, index: currentIndex });
+        notesRef.current = currentNotes.filter((note) => note.id !== noteId);
+        setNotes((prev) => prev.filter((note) => note.id !== noteId));
+        const remaining = currentNotes.filter(
+          (note) => note.id !== noteId && !deleteTimers.current.has(note.id)
+        );
+        const nextNote = remaining[Math.min(currentIndex, remaining.length - 1)];
+        setActiveNoteId((currentId) =>
+          currentId === noteId ? nextNote?.id ?? null : currentId
+        );
+        setEditingId((currentId) => currentId === noteId ? null : currentId);
 
         setShowToast(true);
         if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -404,12 +415,13 @@ const Editor: React.FC = () => {
           setDeletedBackup(null);
         }, 3000);
       }, 250);
+      deleteTimers.current.set(noteId, timer);
     },
-    [notes, activeNoteId]
+    []
   );
 
   const handleDeleteNote = useCallback((): void => {
-    if (!activeNoteId || notes.length === 0) return;
+    if (activeNoteId === null || notes.length === 0) return;
     handleDeleteNoteById(activeNoteId);
   }, [activeNoteId, notes.length, handleDeleteNoteById]);
 
@@ -421,6 +433,7 @@ const Editor: React.FC = () => {
 
     const { note, index } = deletedBackup;
     setNotes((prev) => {
+      if (prev.some((currentNote) => currentNote.id === note.id)) return prev;
       const next = [...prev];
       next.splice(index, 0, note);
       return next;
@@ -439,9 +452,8 @@ const Editor: React.FC = () => {
   // 右侧标题编辑联动
   const handleTitleInput = useCallback(
     (e: React.FormEvent<HTMLHeadingElement>): void => {
-      if (isUpdatingTitle.current) return;
       const target = e.currentTarget;
-      const newTitle = target.textContent?.trim() || '未命名文档';
+      const newTitle = target.textContent?.replace(/\s+/g, ' ').trim() || '未命名文档';
 
       setNotes((prev) =>
         prev.map((note) => {
@@ -462,12 +474,35 @@ const Editor: React.FC = () => {
 
   const handleTitleKeydown = useCallback(
     (e: React.KeyboardEvent<HTMLHeadingElement>): void => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
         e.preventDefault();
         e.currentTarget.blur();
       }
     },
     []
+  );
+
+  // 🌟 新增：正文 Markdown 实时编辑
+  const handleContentInput = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>): void => {
+      const newContent = e.target.value;
+      setNotes((prev) =>
+        prev.map((note) => {
+          if (note.id === activeNoteId) {
+            // 同步更新标题（如果修改了一级标题）
+            const newTitle = getTitleFromMarkdown(newContent);
+            return {
+              ...note,
+              title: newTitle,
+              content: newContent,
+              date: getCurrentTime(),
+            };
+          }
+          return note;
+        })
+      );
+    },
+    [activeNoteId, getCurrentTime]
   );
 
   // 搜索
@@ -516,7 +551,7 @@ const Editor: React.FC = () => {
   const handleContextMenuClick = useCallback(
     (e: React.MouseEvent): void => {
       const item = (e.target as HTMLElement).closest('.context-menu-item');
-      if (!item || !contextMenu.targetId) return;
+      if (!item || contextMenu.targetId === null) return;
 
       const action = item.getAttribute('data-action');
       if (action === 'rename') startRename(contextMenu.targetId);
@@ -531,18 +566,16 @@ const Editor: React.FC = () => {
   // ========== 键盘快捷键 ==========
   useEffect(() => {
     const handleKeydown = (e: KeyboardEvent): void => {
+      if (e.defaultPrevented || e.isComposing) return;
       const target = e.target as HTMLElement;
-      const tag = target.tagName.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || target.isContentEditable)
-        return;
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
         handleAddNote();
         return;
       }
 
-      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
         e.preventDefault();
         const input = document.querySelector('.search-input') as HTMLInputElement | null;
         if (input) {
@@ -551,6 +584,10 @@ const Editor: React.FC = () => {
         }
         return;
       }
+
+      const tag = target.tagName.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || target.isContentEditable)
+        return;
 
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
@@ -597,8 +634,12 @@ const Editor: React.FC = () => {
 
   // 组件卸载清理定时器
   useEffect(() => {
+    const timers = deleteTimers.current;
     return () => {
       if (toastTimer.current) clearTimeout(toastTimer.current);
+      if (newNoteFocusTimer.current !== null) clearTimeout(newNoteFocusTimer.current);
+      timers.forEach((timer) => clearTimeout(timer));
+      timers.clear();
     };
   }, []);
 
@@ -936,14 +977,52 @@ const Editor: React.FC = () => {
         }
         .toast-undo:hover { text-decoration: underline; }
 
-        /* 编辑区 */
+        /* 编辑区 - 双栏布局 */
         .main-content {
           flex: 1;
+          min-width: 0;
+          display: flex;
+          overflow: hidden;
           background-color: var(--bg-editor);
+        }
+        .editor-pane {
+          flex: 1;
+          min-width: 0;
+          min-height: 0;
+          display: flex;
+          flex-direction: column;
+          border-right: 1px solid var(--border-subtle);
+        }
+        .preview-pane {
+          flex: 1;
+          min-width: 0;
+          min-height: 0;
           overflow-y: auto;
           padding: 60px 40px;
-          cursor: text;
         }
+        .content-textarea {
+          flex: 1;
+          min-height: 0;
+          width: 100%;
+          padding: 60px 40px;
+          background-color: var(--bg-editor);
+          color: var(--text-secondary);
+          border: none;
+          outline: none;
+          resize: none;
+          font-family: "SF Mono", Consolas, monospace;
+          font-size: 14px;
+          line-height: 1.8;
+        }
+        .pane-header {
+          padding: 10px 16px;
+          font-size: 12px;
+          color: var(--text-tertiary);
+          border-bottom: 1px solid var(--border-subtle);
+          background-color: var(--bg-sidebar);
+          user-select: none;
+        }
+
         .editor {
           max-width: 680px;
           margin: 0 auto;
@@ -1031,6 +1110,14 @@ const Editor: React.FC = () => {
           transition: background 0.2s ease;
         }
         .empty-state-btn:hover { background: #1a6fe0; }
+        @media (max-width: 1000px) {
+          .main-content { flex-direction: column; }
+          .editor-pane {
+            border-right: none;
+            border-bottom: 1px solid var(--border-subtle);
+          }
+          .content-textarea, .preview-pane { padding: 24px; }
+        }
       `}</style>
 
       {/* 侧边栏 */}
@@ -1114,38 +1201,39 @@ const Editor: React.FC = () => {
                       ref={renameInputRef}
                       className="note-title-input"
                       defaultValue={note.title}
-                      onBlur={(e) =>
-                        saveRename(note.id, e.currentTarget.value)
-                      }
+                      onClick={(e) => e.stopPropagation()}
+                      onBlur={(e) => {
+                        if (renameCancelled.current) {
+                          renameCancelled.current = false;
+                          setEditingId(null);
+                        } else {
+                          saveRename(note.id, e.currentTarget.value);
+                        }
+                      }}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
+                        if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
                           e.preventDefault();
                           e.currentTarget.blur();
                         }
                         if (e.key === 'Escape') {
                           e.preventDefault();
-                          setEditingId(null);
+                          renameCancelled.current = true;
+                          e.currentTarget.blur();
                         }
                         e.stopPropagation();
                       }}
                     />
                   ) : (
-                    <div
-                      className="note-title"
-                      dangerouslySetInnerHTML={{
-                        __html: highlightKeyword(note.title, searchKeyword),
-                      }}
-                    />
+                    <div className="note-title">
+                      {highlightKeyword(note.title, searchKeyword)}
+                    </div>
                   )}
-                  <div
-                    className="note-preview"
-                    dangerouslySetInnerHTML={{
-                      __html: highlightKeyword(
-                        stripMarkdown(note.content).slice(0, 35),
-                        searchKeyword
-                      ),
-                    }}
-                  />
+                  <div className="note-preview">
+                    {highlightKeyword(
+                      stripMarkdown(note.content).slice(0, 35),
+                      searchKeyword
+                    )}
+                  </div>
                   <div className="note-date" title={note.date}>
                     {formatRelativeTime(note.date)}
                   </div>
@@ -1235,23 +1323,45 @@ const Editor: React.FC = () => {
         </div>
       </aside>
 
-      {/* 主编辑区 */}
+      {/* 主编辑区 - 双栏：源码编辑 + 实时预览 */}
       <main className="main-content">
         {activeNote ? (
-          <div className="editor">
-            <h1
-              ref={editTitleRef}
-              contentEditable
-              suppressContentEditableWarning
-              onInput={handleTitleInput}
-              onKeyDown={handleTitleKeydown}
-            >
-              {activeNote.title}
-            </h1>
-            <div dangerouslySetInnerHTML={{ __html: renderedBodyHtml }} />
-          </div>
+          <>
+            {/* 左侧：源码编辑区 */}
+            <div className="editor-pane">
+              <div className="pane-header">编辑</div>
+              <textarea
+                key={activeNote.id}
+                ref={contentTextareaRef}
+                data-note-id={activeNote.id}
+                aria-label="Markdown 源码"
+                className="content-textarea"
+                value={activeNote.content}
+                onChange={handleContentInput}
+                spellCheck={false}
+              />
+            </div>
+
+            {/* 右侧：预览区 */}
+            <div className="preview-pane">
+              <div className="editor">
+                <h1
+                  key={activeNote.id}
+                  ref={editTitleRef}
+                  contentEditable
+                  suppressContentEditableWarning
+                  onInput={handleTitleInput}
+                  onKeyDown={handleTitleKeydown}
+                  onBlur={(e) => {
+                    e.currentTarget.textContent = activeNote.title;
+                  }}
+                />
+                <div dangerouslySetInnerHTML={{ __html: renderedBodyHtml }} />
+              </div>
+            </div>
+          </>
         ) : (
-          <div className="editor empty-state">
+          <div className="editor empty-state" style={{ flex: 1 }}>
             <h1>暂无笔记</h1>
             <p>开始创建你的第一篇文档吧</p>
             <button className="empty-state-btn" onClick={handleAddNote}>
