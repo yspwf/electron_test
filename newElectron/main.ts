@@ -7,7 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 
 // app.commandLine.appendSwitch('ignore-certificate-errors', 'true');
 app.commandLine.appendSwitch('disable-features', 'OutOfBlinkCors');
-
+app.setName('Notes');
 
 const  createWindow = async () => {
   const { BrowserWindow } = await import('electron');
